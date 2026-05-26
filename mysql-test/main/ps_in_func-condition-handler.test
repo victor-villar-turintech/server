@@ -1,0 +1,186 @@
+--echo #
+--echo # MDEV-39518 Allow prepared statements in stored functions in assignment right hand
+--echo #
+
+--echo # CONTINUE handler inside a PS safe function
+
+CREATE TABLE t1 (a TINYINT);
+DELIMITER $$;
+CREATE FUNCTION f1() RETURNS INT
+BEGIN
+  DECLARE CONTINUE HANDLER FOR SQLSTATE '22003' /*Numeric value out of range*/
+  BEGIN
+    SET @error='Error caught';
+  END;
+  INSERT INTO t1 VALUES (1000);
+  RETURN 0;
+END;
+$$
+CREATE PROCEDURE p1()
+BEGIN
+  DECLARE a INT;
+  INSERT INTO t1 VALUES (10);
+  SET a= f1();
+  INSERT INTO t1 VALUES (20);
+END;
+$$
+DELIMITER ;$$
+
+SET @error=NULL;
+START TRANSACTION;
+CALL p1;
+COMMIT;
+SELECT * FROM t1;
+SELECT @error;
+TRUNCATE TABLE t1;
+SET @error=NULL;
+START TRANSACTION;
+CALL p1;
+ROLLBACK;
+SELECT * FROM t1;
+SELECT @error;
+SET @error=NULL;
+
+DROP PROCEDURE p1;
+DROP FUNCTION f1;
+DROP TABLE t1;
+
+
+--echo # CONTINUE handler inside a procedure calling a PS safe function
+
+CREATE TABLE t1 (a TINYINT);
+DELIMITER $$;
+CREATE FUNCTION f1() RETURNS INT
+BEGIN
+  INSERT INTO t1 VALUES (1000);
+  RETURN 0;
+END;
+$$
+CREATE PROCEDURE p1()
+BEGIN
+  DECLARE a INT;
+  DECLARE CONTINUE HANDLER FOR SQLSTATE '22003' /*Numeric value out of range*/
+  BEGIN
+    SET @error='Error caught';
+  END;
+  INSERT INTO t1 VALUES (10);
+  SET a= f1();
+  INSERT INTO t1 VALUES (20);
+END;
+$$
+DELIMITER ;$$
+
+SET @error=NULL;
+START TRANSACTION;
+CALL p1;
+COMMIT;
+SELECT * FROM t1;
+SELECT @error;
+TRUNCATE TABLE t1;
+SET @error=NULL;
+START TRANSACTION;
+CALL p1;
+ROLLBACK;
+SELECT * FROM t1;
+SELECT @error;
+SET @error=NULL;
+
+DROP PROCEDURE p1;
+DROP FUNCTION f1;
+DROP TABLE t1;
+
+
+--echo # EXIT handler inside a PS-safe function
+
+CREATE TABLE t1 (a TINYINT);
+DELIMITER $$;
+CREATE FUNCTION f1() RETURNS INT
+BEGIN
+  DECLARE EXIT HANDLER FOR SQLSTATE '22003' /*Numeric value out of range*/
+  BEGIN
+    SET @error='Error caught';
+    RESIGNAL;
+  END;
+  INSERT INTO t1 VALUES (1000);
+  RETURN 0;
+END;
+$$
+CREATE PROCEDURE p1()
+BEGIN
+  DECLARE a INT;
+  INSERT INTO t1 VALUES (10);
+  SET a= f1();
+  INSERT INTO t1 VALUES (20);
+END;
+$$
+DELIMITER ;$$
+
+SET @error=NULL;
+START TRANSACTION;
+--error ER_WARN_DATA_OUT_OF_RANGE
+CALL p1;
+COMMIT;
+SELECT * FROM t1;
+SELECT @error;
+TRUNCATE TABLE t1;
+SET @error=NULL;
+START TRANSACTION;
+--error ER_WARN_DATA_OUT_OF_RANGE
+CALL p1;
+ROLLBACK;
+SELECT * FROM t1;
+SELECT @error;
+SET @error=NULL;
+
+DROP PROCEDURE p1;
+DROP FUNCTION f1;
+DROP TABLE t1;
+
+
+--echo # EXIT handler inside a procedure calling a PS-safe function
+
+CREATE TABLE t1 (a TINYINT);
+DELIMITER $$;
+CREATE FUNCTION f1() RETURNS INT
+BEGIN
+  INSERT INTO t1 VALUES (1000);
+  RETURN 0;
+END;
+$$
+CREATE PROCEDURE p1()
+BEGIN
+  DECLARE a INT;
+  DECLARE EXIT HANDLER FOR SQLSTATE '22003' /*Numeric value out of range*/
+  BEGIN
+    SET @error='Error caught';
+    RESIGNAL;
+  END;
+  INSERT INTO t1 VALUES (10);
+  SET a= f1();
+  INSERT INTO t1 VALUES (20);
+END;
+$$
+DELIMITER ;$$
+
+SET @error=NULL;
+START TRANSACTION;
+--error ER_WARN_DATA_OUT_OF_RANGE
+CALL p1;
+COMMIT;
+SELECT * FROM t1;
+SELECT @error;
+TRUNCATE TABLE t1;
+SET @error=NULL;
+START TRANSACTION;
+--error ER_WARN_DATA_OUT_OF_RANGE
+CALL p1;
+ROLLBACK;
+SELECT * FROM t1;
+SELECT @error;
+SET @error=NULL;
+
+DROP PROCEDURE p1;
+DROP FUNCTION f1;
+DROP TABLE t1;
+
+--echo # End of 13.1 tests

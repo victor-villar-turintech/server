@@ -1,0 +1,202 @@
+#
+# MDEV-39518 Allow prepared statements in stored functions in assignment right hand
+#
+# CONTINUE handler inside a PS safe function
+CREATE TABLE t1 (a TINYINT);
+CREATE FUNCTION f1() RETURNS INT
+BEGIN
+DECLARE CONTINUE HANDLER FOR SQLSTATE '22003' /*Numeric value out of range*/
+BEGIN
+SET @error='Error caught';
+END;
+INSERT INTO t1 VALUES (1000);
+RETURN 0;
+END;
+$$
+CREATE PROCEDURE p1()
+BEGIN
+DECLARE a INT;
+INSERT INTO t1 VALUES (10);
+SET a= f1();
+INSERT INTO t1 VALUES (20);
+END;
+$$
+SET @error=NULL;
+START TRANSACTION;
+CALL p1;
+COMMIT;
+SELECT * FROM t1;
+a
+10
+20
+SELECT @error;
+@error
+Error caught
+TRUNCATE TABLE t1;
+SET @error=NULL;
+START TRANSACTION;
+CALL p1;
+ROLLBACK;
+Warnings:
+Warning	1196	Some non-transactional changed tables couldn't be rolled back
+SELECT * FROM t1;
+a
+10
+20
+SELECT @error;
+@error
+Error caught
+SET @error=NULL;
+DROP PROCEDURE p1;
+DROP FUNCTION f1;
+DROP TABLE t1;
+# CONTINUE handler inside a procedure calling a PS safe function
+CREATE TABLE t1 (a TINYINT);
+CREATE FUNCTION f1() RETURNS INT
+BEGIN
+INSERT INTO t1 VALUES (1000);
+RETURN 0;
+END;
+$$
+CREATE PROCEDURE p1()
+BEGIN
+DECLARE a INT;
+DECLARE CONTINUE HANDLER FOR SQLSTATE '22003' /*Numeric value out of range*/
+BEGIN
+SET @error='Error caught';
+END;
+INSERT INTO t1 VALUES (10);
+SET a= f1();
+INSERT INTO t1 VALUES (20);
+END;
+$$
+SET @error=NULL;
+START TRANSACTION;
+CALL p1;
+COMMIT;
+SELECT * FROM t1;
+a
+10
+20
+SELECT @error;
+@error
+Error caught
+TRUNCATE TABLE t1;
+SET @error=NULL;
+START TRANSACTION;
+CALL p1;
+ROLLBACK;
+Warnings:
+Warning	1196	Some non-transactional changed tables couldn't be rolled back
+SELECT * FROM t1;
+a
+10
+20
+SELECT @error;
+@error
+Error caught
+SET @error=NULL;
+DROP PROCEDURE p1;
+DROP FUNCTION f1;
+DROP TABLE t1;
+# EXIT handler inside a PS-safe function
+CREATE TABLE t1 (a TINYINT);
+CREATE FUNCTION f1() RETURNS INT
+BEGIN
+DECLARE EXIT HANDLER FOR SQLSTATE '22003' /*Numeric value out of range*/
+BEGIN
+SET @error='Error caught';
+RESIGNAL;
+END;
+INSERT INTO t1 VALUES (1000);
+RETURN 0;
+END;
+$$
+CREATE PROCEDURE p1()
+BEGIN
+DECLARE a INT;
+INSERT INTO t1 VALUES (10);
+SET a= f1();
+INSERT INTO t1 VALUES (20);
+END;
+$$
+SET @error=NULL;
+START TRANSACTION;
+CALL p1;
+ERROR 22003: Out of range value for column 'a' at row 1
+COMMIT;
+SELECT * FROM t1;
+a
+10
+SELECT @error;
+@error
+Error caught
+TRUNCATE TABLE t1;
+SET @error=NULL;
+START TRANSACTION;
+CALL p1;
+ERROR 22003: Out of range value for column 'a' at row 1
+ROLLBACK;
+Warnings:
+Warning	1196	Some non-transactional changed tables couldn't be rolled back
+SELECT * FROM t1;
+a
+10
+SELECT @error;
+@error
+Error caught
+SET @error=NULL;
+DROP PROCEDURE p1;
+DROP FUNCTION f1;
+DROP TABLE t1;
+# EXIT handler inside a procedure calling a PS-safe function
+CREATE TABLE t1 (a TINYINT);
+CREATE FUNCTION f1() RETURNS INT
+BEGIN
+INSERT INTO t1 VALUES (1000);
+RETURN 0;
+END;
+$$
+CREATE PROCEDURE p1()
+BEGIN
+DECLARE a INT;
+DECLARE EXIT HANDLER FOR SQLSTATE '22003' /*Numeric value out of range*/
+BEGIN
+SET @error='Error caught';
+RESIGNAL;
+END;
+INSERT INTO t1 VALUES (10);
+SET a= f1();
+INSERT INTO t1 VALUES (20);
+END;
+$$
+SET @error=NULL;
+START TRANSACTION;
+CALL p1;
+ERROR 22003: Out of range value for column 'a' at row 1
+COMMIT;
+SELECT * FROM t1;
+a
+10
+SELECT @error;
+@error
+Error caught
+TRUNCATE TABLE t1;
+SET @error=NULL;
+START TRANSACTION;
+CALL p1;
+ERROR 22003: Out of range value for column 'a' at row 1
+ROLLBACK;
+Warnings:
+Warning	1196	Some non-transactional changed tables couldn't be rolled back
+SELECT * FROM t1;
+a
+10
+SELECT @error;
+@error
+Error caught
+SET @error=NULL;
+DROP PROCEDURE p1;
+DROP FUNCTION f1;
+DROP TABLE t1;
+# End of 13.1 tests
