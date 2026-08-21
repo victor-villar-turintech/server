@@ -5227,7 +5227,6 @@ int create_table_impl(THD *thd,
           create_info->tmp_name.length= 64;
           make_tmp_table_name(thd, (LEX_STRING*) &create_info->tmp_name,
                               "create");
-
           param.new_alias= Lex_ident_table(create_info->tmp_name);
           if (lower_case_table_names == 2)
             param.old_alias= table_list.alias;
@@ -5255,14 +5254,17 @@ int create_table_impl(THD *thd,
                                                      table_name.str,
                                                      MDL_EXCLUSIVE));
           /*
-            Create an exclusive lock on the temporary table name.
-            during the rename.  As the name is unique this should
-            never fail.
+            Create a lock for the duration of the statement for the
+            temporary table name.  As the name is unique this should
+            never fail. We need to the keep the lock around to ensure
+            that InnoDB will not run purge on the table until the
+            create and replace is complete.
            */
           MDL_REQUEST_INIT(&mdl_request, MDL_key::TABLE,
                            db.str, create_info->tmp_name.str,
-                           MDL_EXCLUSIVE, MDL_EXPLICIT);
+                           MDL_EXCLUSIVE, MDL_TRANSACTION);
           thd->mdl_context.acquire_lock(&mdl_request, 0);
+          DBUG_ASSERT(mdl_request.ticket);      // Assert above comment
 
           /*
             We have to reset partition_info from the CREATE TABLE as
@@ -5273,8 +5275,6 @@ int create_table_impl(THD *thd,
           tmp_error= do_rename(thd, &param, ddl_log_state_create, &tmp_table,
                                &tmp_table.db, 0, &force_if_exists);
           thd->lex->part_info= save_part_info;
-          if (mdl_request.ticket)
-            thd->mdl_context.release_lock(mdl_request.ticket);
           if (tmp_error)
             goto err;                           // error is already set
 

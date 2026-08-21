@@ -919,6 +919,7 @@ static bool increment_phase(uint entry_pos)
   - Error about tables files that already exists.
   - Error from delete table (from Drop_table_error_handler)
   - Wrong trigger definer   (from Drop_table_error_handler)
+  - Timeout from MDL locks in debug builds.
 */
 
 class ddl_log_error_handler : public Internal_error_handler
@@ -944,6 +945,22 @@ public:
     if (non_existing_table_error(sql_errno) ||
         (!only_ignore_non_existing_errors &&
          (sql_errno == EE_LINK ||
+#ifndef DBUG_OFF
+          /*
+            Show errors about lock timeout in debug builds so that the
+            failure can be catched by mysql-test-run. This is to catch
+            timeout errors we could have got with old code.
+            Lock timeouts are ignored in release builds as they should
+            never happen, but if they would happen there is nothing
+            that can be done about them when executing the ddl log. The
+            rename/drop protected by the lock will always be excuted.
+            If this unlikely/impossible thing happens and there is conflict,
+            then and engine like InnoDB may produce it's own error.
+            If there is no error from the storage engine, then things should
+            be fine.
+          */
+          sql_errno == ER_LOCK_WAIT_TIMEOUT ||
+#endif /* !DBUG_OFF */
           sql_errno == EE_DELETE || sql_errno == ER_TRG_NO_DEFINER)))
     {
       handled_errors++;
@@ -1009,12 +1026,10 @@ static void ddl_log_to_binary_log(THD *thd, String *query)
   lex_string_set(&thd->db, recovery_state.current_db);
   query->length(query->length()-1);             // Removed end ','
   query->append(&end_comment);
-  mysql_mutex_unlock(&LOCK_gdl);
   thd->transaction->stmt.mark_trans_did_ddl();
   (void) thd->binlog_query(THD::STMT_QUERY_TYPE,
                            query->ptr(), query->length(),
                            TRUE, FALSE, FALSE, 0);
-  mysql_mutex_lock(&LOCK_gdl);
   thd->db= thd_db;
 }
 
@@ -1135,15 +1150,23 @@ static int execute_rename_table(THD *thd, DDL_LOG_ENTRY *ddl_log_entry,
                                     flags & FN_TO_IS_TMP);
   }
 
-  /* Take mdl locks on both tables. These should always succeed */
+  /*
+    Both of the above tables should normally be locked on the SQL
+    level, except during crash recovery. As crash recovery is
+    run before any engine recovery, there should not be any need
+    for any locks.
+    As a precaution we still take mdl locks on both tables with a
+    timeout of 10 seconds. The locks should succeed at once as
+    described above.
+  */
   MDL_REQUEST_INIT(&mdl_request_from, MDL_key::TABLE,
                    from_db->str, from_table->str,
                    MDL_EXCLUSIVE, MDL_EXPLICIT);
   MDL_REQUEST_INIT(&mdl_request_to, MDL_key::TABLE,
                    to_db->str, to_table->str,
                    MDL_EXCLUSIVE, MDL_EXPLICIT);
-  thd->mdl_context.acquire_lock(&mdl_request_from, 0);
-  thd->mdl_context.acquire_lock(&mdl_request_to, 0);
+  thd->mdl_context.acquire_lock(&mdl_request_from, 10);
+  thd->mdl_context.acquire_lock(&mdl_request_to, 10);
 
   if (!get_hlindex_keys_by_open(thd, from_db, from_table, from_path, &keys,
                                 &total_keys))
@@ -1209,7 +1232,7 @@ static int execute_drop_table(THD *thd, handlerton *hton, const LEX_CSTRING *db,
   */
   MDL_REQUEST_INIT(&mdl_request, MDL_key::TABLE, db->str, table->str,
                    MDL_EXCLUSIVE, MDL_EXPLICIT);
-  if (!(thd->mdl_context.acquire_lock(&mdl_request, 0)))
+  if (!(thd->mdl_context.acquire_lock(&mdl_request, 10)))
     tdc_remove_table(thd, db->str, table->str);
 
   if (get_hlindex_keys_by_open(thd, db, table, path, &keys, &total_keys) == 0)
@@ -1848,7 +1871,6 @@ static int ddl_log_execute_action(THD *thd, MEM_ROOT *mem_root,
       }
       if (mysql_bin_log.is_open())
       {
-        mysql_mutex_unlock(&LOCK_gdl);
         thd->db= ddl_log_entry->db;
         thd->transaction->stmt.mark_trans_did_ddl();
         (void) thd->binlog_query(THD::STMT_QUERY_TYPE,
@@ -1856,7 +1878,6 @@ static int ddl_log_execute_action(THD *thd, MEM_ROOT *mem_root,
                                  recovery_state.drop_table.length(), TRUE, FALSE,
                                  FALSE, 0);
         thd->db= thd_db;
-        mysql_mutex_lock(&LOCK_gdl);
       }
     }
     (void) update_phase(entry_pos, DDL_LOG_FINAL_PHASE);
@@ -1890,12 +1911,10 @@ static int ddl_log_execute_action(THD *thd, MEM_ROOT *mem_root,
 
       if (mysql_bin_log.is_open())
       {
-        mysql_mutex_unlock(&LOCK_gdl);
         thd->transaction->stmt.mark_trans_did_ddl();
         (void) thd->binlog_query(THD::STMT_QUERY_TYPE,
                                  query->ptr(), query->length(),
                                  TRUE, FALSE, FALSE, 0);
-        mysql_mutex_lock(&LOCK_gdl);
       }
       (void) update_phase(entry_pos, DDL_LOG_FINAL_PHASE);
       break;
@@ -1938,12 +1957,10 @@ static int ddl_log_execute_action(THD *thd, MEM_ROOT *mem_root,
 
       if (mysql_bin_log.is_open())
       {
-        mysql_mutex_unlock(&LOCK_gdl);
         thd->transaction->stmt.mark_trans_did_ddl();
         (void) thd->binlog_query(THD::STMT_QUERY_TYPE,
                                  query->ptr(), query->length(),
                                  TRUE, FALSE, FALSE, 0);
-        mysql_mutex_lock(&LOCK_gdl);
       }
     }
     (void) update_phase(entry_pos, DDL_LOG_FINAL_PHASE);
@@ -2370,7 +2387,6 @@ static int ddl_log_execute_action(THD *thd, MEM_ROOT *mem_root,
         thd->binlog_xid= recovery_state.xid;
         update_xid(recovery_state.execute_entry_pos, thd->binlog_xid);
 
-        mysql_mutex_unlock(&LOCK_gdl);
         save_db= thd->db;
         thd->db= recovery_state.db.to_lex_cstring();
         thd->transaction->stmt.mark_trans_did_ddl();
@@ -2380,7 +2396,6 @@ static int ddl_log_execute_action(THD *thd, MEM_ROOT *mem_root,
                                  TRUE, FALSE, FALSE, 0);
         thd->binlog_xid= 0;
         thd->db= save_db;
-        mysql_mutex_lock(&LOCK_gdl);
       }
       recovery_state.query.length(0);
       (void) update_phase(entry_pos, DDL_LOG_FINAL_PHASE);

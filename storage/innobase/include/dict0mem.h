@@ -2141,6 +2141,7 @@ typedef enum {
 	DICT_FRM_INCONSISTENT_KEYS = 3	/*!< Key count mismatch */
 } dict_frm_t;
 
+
 /** Data structure for a database table.  Most fields will be
 zero-initialized in dict_table_t::create(). */
 struct dict_table_t {
@@ -2199,6 +2200,19 @@ struct dict_table_t {
 		const char *str= strstr(name, "/#sql");
 		return (str && strncmp(str+5, "-create-",8));
 	}
+
+       /** Same as dict_table::is_temporary_name() but with explicit parameters
+           and assumes that the string only has one '/' */
+        static inline bool is_temporary_name(const char* name, size_t length)
+          noexcept
+        {
+          const char *str= (static_cast<const char*>
+                            (memchr(name, '/', length)));
+          return (str && (name+length-str) >= 5 &&
+                  !memcmp(str+1, "#sql", 4) &&
+                  !((name+length-str) >= 13 &&
+                    !memcmp(str+1, "#sql-create-", 12)));
+        }
 
 	/** Check if a table name contains the string "/#sql-create-"
             which denotes a backup file as part of create or replace */

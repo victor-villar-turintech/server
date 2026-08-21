@@ -13061,7 +13061,8 @@ bool mysql_create_user(THD *thd, List <LEX_USER> &list, bool handle_as_role)
   }
 
   if (binlog)
-    result |= write_bin_log(thd, FALSE, thd->query(), thd->query_length());
+    result |= MY_TEST(write_bin_log(thd, FALSE, thd->query(),
+                                    thd->query_length()));
 
   mysql_rwlock_unlock(&LOCK_grant);
   DBUG_RETURN(result);

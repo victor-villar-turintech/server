@@ -14,6 +14,7 @@ call mtr.add_suppression("Number of rows changed");
 call mtr.add_suppression("Got an error from unknown thread");
 call mtr.add_suppression("Checking table");
 call mtr.add_suppression("Recovering table");
+call mtr.add_suppression("Got an error from thread_id");
 
 create table t10 (p int primary key, new int) engine=innodb;
 insert into t10 values (1,1),(2,2),(3,1);

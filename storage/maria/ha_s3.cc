@@ -376,17 +376,19 @@ static my_bool s3_info_init(S3_INFO *s3_info, const char *path,
 static int is_mariadb_internal_tmp_table(const char *table_name)
 {
   int length;
-  const int p_length= sizeof(tmp_file_prefix);  // prefix + '-'
+  int p_length= tmp_file_prefix_length;
   /* Temporary table from ALTER TABLE */
-  if (!strncmp(table_name, tmp_file_prefix "-" , p_length))
+  if (!strncmp(table_name, tmp_file_prefix, p_length) &&
+      table_name[p_length] == '-')
   {
     /*
       Internal temporary tables used by ALTER TABLE and ALTER PARTITION
       should be stored in S3
     */
-    if (!strncmp(table_name+p_length, "backup-", sizeof("backup-")-1) ||
-        !strncmp(table_name+p_length, "exchange-", sizeof("exchange-")-1) ||
-        !strncmp(table_name+p_length, "temptable-", sizeof("temptable-")-1))
+    p_length++;                                 // skip '-'
+    if (!strncmp(table_name+p_length, STRING_WITH_LEN("backup-")) ||
+        !strncmp(table_name+p_length, STRING_WITH_LEN("exchange-")) ||
+        !strncmp(table_name+p_length, STRING_WITH_LEN("temptable-")))
       return 0;
     /* Other temporary tables should be stored in Aria on local disk */
     return 1;

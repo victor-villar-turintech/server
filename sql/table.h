@@ -97,8 +97,7 @@ typedef ulonglong nested_join_map;
 #define VIEW_MD5_LEN 32
 #define MD5_BUFF_LENGTH (VIEW_MD5_LEN + 1) /* hex digest + NUL */
 
-
-#define tmp_file_prefix "#sql"			/**< Prefix for tmp tables */
+extern const char tmp_file_prefix[]; /**< Prefix for tmp tables, starts with # */
 #define tmp_file_prefix_length 4
 #define TMP_TABLE_KEY_EXTRA 8
 #define ROCKSDB_DIRECTORY_NAME "#rocksdb"

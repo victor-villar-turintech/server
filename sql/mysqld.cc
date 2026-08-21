@@ -633,6 +633,13 @@ uint reg_ext_length;
 const key_map key_map_empty(0);
 key_map key_map_full(0);                        // Will be initialized later
 
+/*
+  Prefix for tmp tables. Starts with '#'. Length must also match
+  tmp_file_prefix_length in table.h
+*/
+const char tmp_file_prefix[]= "#sql";
+static_assert(sizeof(tmp_file_prefix) == tmp_file_prefix_length + 1, "");
+
 Time_zone *default_tz;
 
 const char *mysql_real_data_home_ptr= mysql_real_data_home;
