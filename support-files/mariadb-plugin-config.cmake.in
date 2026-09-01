@@ -103,6 +103,11 @@ ENDMACRO(EXTERNAL_PLUGIN_POST)
 
 @install_layout.cmake@
 
+IF(CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT)
+  SET(CMAKE_INSTALL_PREFIX ${basedir}
+    CACHE PATH "install prefix" FORCE)
+ENDIF()
+
 @plugin.cmake@
 
 IF (RPM)
