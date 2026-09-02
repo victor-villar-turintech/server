@@ -261,6 +261,8 @@ IF(NOT WITHOUT_SERVER)
   FILE(READ ${CMAKE_SOURCE_DIR}/cmake/install_layout.cmake install_layout.cmake)
   FILE(READ ${CMAKE_SOURCE_DIR}/cmake/plugin.cmake plugin.cmake)
   CONFIGURE_FILE(mariadb-plugin-config.cmake.in mariadb-plugin-config.cmake @ONLY)
-  INSTALL(FILES ${CMAKE_CURRENT_BINARY_DIR}/mariadb-plugin-config.cmake DESTINATION ${INSTALL_SHAREDIR}/cmake/mariadb-plugin/
-          COMPONENT Development)
+  INSTALL(FILES ${CMAKE_CURRENT_BINARY_DIR}/mariadb-plugin-config.cmake
+          DESTINATION ${INSTALL_SHAREDIR}/cmake/mariadb-plugin/ COMPONENT Development)
+  INSTALL(EXPORT mariadb-plugin-targets FILE mariadb-plugin-targets.cmake
+          DESTINATION ${INSTALL_SHAREDIR}/cmake/mariadb-plugin/ COMPONENT Development)
 ENDIF()
