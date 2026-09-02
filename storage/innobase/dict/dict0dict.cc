@@ -546,13 +546,9 @@ bool dict_table_t::parse_name(char (&db_name)[NAME_LEN + 1],
   size_t tbl_len= strlen(mdl_name.m_name + db_len + 1);
   const bool is_temp= mdl_name.is_temporary();
 
-  /*
-    The + 2 is to avoid checking for #sql when checking partition name.
-    This is safe as there is always a table name before the partition suffix.
-  */
-  if (is_temp || tbl_len == 0);
+  if (is_temp);
   else if (const char *is_part= static_cast<const char*>
-           (memchr(mdl_name.m_name + db_len + 2, '#', tbl_len-1)))
+           (memchr(mdl_name.m_name + db_len + 1, '#', tbl_len)))
     tbl_len= static_cast<size_t>(is_part - &mdl_name.m_name[db_len + 1]);
 
   memcpy(tbl_buf, mdl_name.m_name + db_len + 1, tbl_len);
@@ -1524,15 +1520,14 @@ dict_table_rename_in_cache(
 					       old_name_len))
 		->remove(*table, &dict_table_t::name_hash);
 
-        /*
-          The test for '/' below is just to align with original InnoDB code
-          and should not be necessary as this would only be reached by
-          unprefixed names, like SYS_*, which are never renamed.
-        */
-	bool keep_mdl_name = (!table->name.is_temporary() &&
-                              (dict_table_t::is_temporary_name(new_name.data(),
-                                                               new_name.size()) ||
-                               !memchr(new_name.data(), '/', new_name.size())));
+	bool keep_mdl_name = !table->name.is_temporary();
+
+	if (!keep_mdl_name) {
+	} else if (const char* s = static_cast<const char*>
+		   (memchr(new_name.data(), '/', new_name.size()))) {
+		keep_mdl_name = new_name.end() - s >= 5
+			&& !memcmp(s, "/#sql", 5);
+	}
 
 	if (keep_mdl_name) {
 		/* Preserve the original table name for

@@ -2141,7 +2141,6 @@ typedef enum {
 	DICT_FRM_INCONSISTENT_KEYS = 3	/*!< Key count mismatch */
 } dict_frm_t;
 
-
 /** Data structure for a database table.  Most fields will be
 zero-initialized in dict_table_t::create(). */
 struct dict_table_t {
@@ -2190,39 +2189,14 @@ struct dict_table_t {
 	}
 
 	/** Check if a table name contains the string "/#sql"
-            which denotes temporary or intermediate tables in MariaDB.
-            Table names starting with '#sql-create-', which are used
-            as backup during create and replace, are not threated as
-            temporary tables as they may contain foreign key references
-            that needs to be renamed as part of table renames */
-	static bool is_temporary_name(const char* name) noexcept
+	which denotes temporary or intermediate tables in MariaDB. */
+	static bool is_temporary_name(const char* name)
 	{
-		const char *str= strstr(name, "/#sql");
-		return (str && strncmp(str+5, "-create-",8));
-	}
-
-       /** Same as dict_table::is_temporary_name() but with explicit parameters
-           and assumes that the string only has one '/' */
-        static inline bool is_temporary_name(const char* name, size_t length)
-          noexcept
-        {
-          const char *str= (static_cast<const char*>
-                            (memchr(name, '/', length)));
-          return (str && (name+length-str) >= 5 &&
-                  !memcmp(str+1, "#sql", 4) &&
-                  !((name+length-str) >= 13 &&
-                    !memcmp(str+1, "#sql-create-", 12)));
-        }
-
-	/** Check if a table name contains the string "/#sql-create-"
-            which denotes a backup file as part of create or replace */
-	static bool is_create_or_replace_name(const char* name) noexcept
-	{
-		return strstr(name, "/#sql-create-");
+		return strstr(name, "/#sql");
 	}
 
 	/** @return whether instant ALTER TABLE is in effect */
-	bool is_instant() const noexcept
+	bool is_instant() const
 	{
 		return(UT_LIST_GET_FIRST(indexes)->is_instant());
 	}
@@ -2832,14 +2806,9 @@ inline void dict_index_t::set_modified(mtr_t& mtr) const
 	mtr.set_named_space(table->space);
 }
 
-inline bool table_name_t::is_temporary() const noexcept
+inline bool table_name_t::is_temporary() const
 {
 	return dict_table_t::is_temporary_name(m_name);
-}
-
-inline bool table_name_t::is_create_or_replace() const noexcept
-{
-	return dict_table_t::is_create_or_replace_name(m_name);
 }
 
 inline bool dict_index_t::is_readable() const { return table->is_readable(); }

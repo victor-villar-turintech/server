@@ -13844,7 +13844,7 @@ int ha_innobase::delete_table(const char *name)
     DBUG_RETURN(0);
   }
 
-  if (parent_trx->check_foreigns && ! table->name.is_create_or_replace() &&
+  if (parent_trx->check_foreigns &&
       delete_table_check_foreigns(*table, sqlcom))
   {
     dict_sys.unlock();
@@ -14026,8 +14026,7 @@ err_exit:
 
   if (!table->no_rollback())
   {
-    if (trx->check_foreigns &&  ! table->name.is_create_or_replace() &&
-        delete_table_check_foreigns(*table, sqlcom))
+    if (trx->check_foreigns && delete_table_check_foreigns(*table, sqlcom))
     {
       err= DB_CANNOT_DROP_CONSTRAINT;
       goto err_exit;
