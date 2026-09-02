@@ -741,7 +741,7 @@ create or replace table u (
 select * from information_schema.innodb_sys_foreign;
 select * from information_schema.innodb_sys_foreign_cols;
 
-# This works thanks to MDEV-28933 and MDEV-25292
+# This works thanks to MDEV-28933; MDEV-25292 must not break it.
 create or replace table u (
   a int primary key,
   constraint c foreign key d (a) references t (a)) engine=innodb;
