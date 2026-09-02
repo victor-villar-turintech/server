@@ -4873,6 +4873,28 @@ void Table_specification_st::end_create_table(THD *thd,
   if (table_was_renamed)
   {
     /* remove backup table */
+
+    if (or_replace())
+    {
+      /*
+        Acquire a lock for the duration of the statement for the
+        backup table name that create_table_impl() renamed the
+        original table to. We must block an InnoDB purge of
+        any committed history in the table while invoking
+        ha_innobase::delete_table().
+      */
+      MDL_request mdl_request;
+      MDL_REQUEST_INIT(&mdl_request, MDL_key::TABLE,
+                       orig_table->db.str, tmp_name.str,
+                       MDL_EXCLUSIVE, MDL_TRANSACTION);
+      thd->mdl_context.acquire_lock(&mdl_request, 0);
+      /*
+        Because the name is unique (and the rename had been successful),
+        the acquisition must succeed.
+      */
+      DBUG_ASSERT(mdl_request.ticket);
+    }
+
     ddl_log_revert(thd, ddl_log_state_rm);
     debug_crash_here("ddl_log_create_after_revert");
   }
@@ -5231,7 +5253,6 @@ int create_table_impl(THD *thd,
           /* Rename the conflicting table to a temporary table name */
           bool force_if_exists= 0, tmp_error;
           rename_param param;
-          MDL_request mdl_request;
           partition_info *save_part_info;
 
           create_info->org_hton= db_type;
@@ -5267,19 +5288,6 @@ int create_table_impl(THD *thd,
           DBUG_ASSERT(thd->mdl_context.is_lock_owner(MDL_key::TABLE, db.str,
                                                      table_name.str,
                                                      MDL_EXCLUSIVE));
-          /*
-            Create a lock for the duration of the statement for the
-            temporary table name.  As the name is unique this should
-            never fail. We need to the keep the lock around to ensure
-            that InnoDB will not run purge on the table until the
-            create and replace is complete.
-           */
-          MDL_REQUEST_INIT(&mdl_request, MDL_key::TABLE,
-                           db.str, create_info->tmp_name.str,
-                           MDL_EXCLUSIVE, MDL_TRANSACTION);
-          thd->mdl_context.acquire_lock(&mdl_request, 0);
-          DBUG_ASSERT(mdl_request.ticket);      // Assert above comment
-
           /*
             We have to reset partition_info from the CREATE TABLE as
             open_table() uses it to check how the table is partitioned.
