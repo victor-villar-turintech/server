@@ -5775,12 +5775,6 @@ public:
 
   bool log_not_redoable_operation(const char *operation);
 
-  /* Can the table be renamed to a backup name as part of create or_replace */
-  virtual int can_be_renamed_to_backup() const
-  {
-    return 0;                                   /* Yes */
-  }
-
 protected:
   Handler_share *get_ha_share_ptr();
   void set_ha_share_ptr(Handler_share *arg_ha_share);

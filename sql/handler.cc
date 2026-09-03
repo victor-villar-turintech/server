@@ -7254,7 +7254,6 @@ bool ha_check_if_updates_are_ignored(THD *thd, handlerton *hton,
 
    @retval
    0  ok
-   -1 error why create/replace could not be done. Warning is given to user
    1  Fatal error from open_table. Error given to user
 
    @notes
@@ -7262,13 +7261,8 @@ bool ha_check_if_updates_are_ignored(THD *thd, handlerton *hton,
    - The to-be renamed table is of type InnoDB and has a named foreign key
 */
 
-static const char *create_err_msg=
-  "Engine does not support atomic create or replace "
-  "for table '%-.192s' (Error: %d). Original table will be deleted";
-
 static int ha_can_be_renamed_to_backup(THD *thd, TABLE *table)
 {
-  int res;
   /*
     We cannot by default use create or replace for a table with foreign keys
     as there will be dangling references when the table is created.
@@ -7276,19 +7270,8 @@ static int ha_can_be_renamed_to_backup(THD *thd, TABLE *table)
     the foreign key definition will still point to the renamed table
     after rename of the orignal table to temporary name.
    */
-  if (fk_truncate_illegal_if_parent(thd, table))
+  if (fk_truncate_illegal_if_parent(thd, table, "CREATE OR REPLACE"))
     return 1;
-
-  if ((res= table->file->can_be_renamed_to_backup()))
-  {
-    bool save_abort_on_warning= thd->abort_on_warning;
-    thd->abort_on_warning= false;
-    my_printf_error(HA_ERR_INTERNAL_ERROR, create_err_msg,
-                    MYF(ME_WARNING),
-                    table->s->table_name.str, res);
-    thd->abort_on_warning= save_abort_on_warning;
-    return -1;
-  }
   return 0;
 }
 
