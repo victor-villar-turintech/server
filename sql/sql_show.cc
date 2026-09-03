@@ -954,7 +954,7 @@ bool
 db_name_is_in_ignore_db_dirs_list(const char *directory)
 {
   char buff[FN_REFLEN];
-  uint buff_len;
+  size_t buff_len;
 
   if (skip_ignored_dir_check)
     return 0;

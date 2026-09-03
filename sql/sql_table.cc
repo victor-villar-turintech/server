@@ -450,8 +450,8 @@ uint explain_filename(THD* thd,
     Table name length.
 */
 
-uint filename_to_tablename(const char *from, char *to, size_t to_length, 
-                           bool stay_quiet)
+size_t filename_to_tablename(const char *from, char *to, size_t to_length,
+                             bool stay_quiet)
 {
   uint errors;
   size_t res;
@@ -474,7 +474,7 @@ uint filename_to_tablename(const char *from, char *to, size_t to_length,
   }
 
   DBUG_PRINT("exit", ("to '%s'", to));
-  DBUG_RETURN((uint)res);
+  DBUG_RETURN(res);
 }
 
 
@@ -551,8 +551,8 @@ static bool check_if_frm_exists(char *path, const char *db, const char *table)
     File name length.
 */
 
-uint tablename_to_filename_internal(const char *from, char *to,
-                                    size_t to_length)
+size_t tablename_to_filename_internal(const char *from, char *to,
+                                      size_t to_length)
 {
   uint errors, length;
   DBUG_ENTER("tablename_to_filename_internal");
@@ -591,7 +591,7 @@ uint tablename_to_filename_internal(const char *from, char *to,
   an internal temporary file name then return it as such
 */
 
-uint tablename_to_filename(const char *from, char *to, size_t to_length)
+size_t tablename_to_filename(const char *from, char *to, size_t to_length)
 {
   DBUG_ENTER("tablename_to_filename");
   if (is_tmp_table(from))

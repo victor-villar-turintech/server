@@ -978,7 +978,8 @@ bool Sql_cmd_alter_table_truncate_partition::execute(THD *thd)
 
     query_cache_invalidate3(thd, first_table, FALSE);
     if (binlog_stmt)
-      error|= write_bin_log(thd, !error, thd->query(), thd->query_length());
+      error|= MY_TEST(write_bin_log(thd, !error, thd->query(),
+                                    thd->query_length()));
     thd->variables.option_bits= save_option_bits;
   }
 
