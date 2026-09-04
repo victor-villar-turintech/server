@@ -2008,13 +2008,6 @@ handlerton *ha_default_tmp_handlerton(THD *thd);
   When set atomic CREATE OR REPLACE TABLE is not used.
 */
 #define HTON_EXPENSIVE_RENAME (1 << 21)
-/*
-  Engine may not support rename of a table to a backup, as used by
-  CREATE OR REPLACE. If this flag is set, then MariaDB will call
-  handler->can_rename_to_backup() to check if atomic CREATE OR REPLACE
-  code can be used.
-*/
-#define HTON_CHECK_NEEDED_FOR_CREATE_OR_REPLACE (1 << 22)
 
 class Ha_trx_info;
 
@@ -6056,8 +6049,6 @@ bool non_existing_table_error(int error);
 uint ha_count_rw_2pc(THD *thd, bool all);
 uint ha_check_and_coalesce_trx_read_only(THD *thd, Ha_trx_info *ha_list,
                                          bool all, bool *no_rollback);
-int ha_check_if_table_can_be_renamed_to_backup(THD *thd, handlerton *hton,
-                                               TABLE_LIST *create_table);
 inline void Cost_estimate::reset(handler *file)
 {
   reset();

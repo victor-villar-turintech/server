@@ -5150,20 +5150,10 @@ int create_table_impl(THD *thd,
                               (db_type->flags & HTON_EXPENSIVE_RENAME) ||
                               thd->slave_thread || !ddl_log_state_create ||
                               thd->variables.drop_before_create_or_replace);
-        int res= 0;
         TABLE_LIST table_list;
         TABLE *table= create_info->table;
         table_list.init_one_table(&db, &table_name, 0, TL_WRITE_ALLOW_WRITE);
         table_list.table= table;
-
-        if (!use_drop_table &&
-            (res= ha_check_if_table_can_be_renamed_to_backup(thd, db_type,
-                                                             &table_list)))
-        {
-          if (res > 0)
-            goto err;                           // Error from open_table()
-          use_drop_table= 1;
-        }
 
         if (log_table && logger.is_log_table_enabled(log_table))
         {
@@ -5214,6 +5204,30 @@ int create_table_impl(THD *thd,
         }
         else
         {
+          if (db_type->flags & HTON_SUPPORTS_FOREIGN_KEYS)
+          {
+            if (!table_list.table)
+            {
+              Open_table_context ot_ctx{
+                thd, MYSQL_OPEN_IGNORE_FLUSH | MYSQL_OPEN_HAS_MDL_LOCK |
+                MYSQL_LOCK_IGNORE_TIMEOUT
+              };
+              if (open_table(thd, &table_list, &ot_ctx))
+                goto err;
+              const int ret=
+                fk_truncate_illegal_if_parent(thd, table_list.table,
+                                              "CREATE OR REPLACE");
+              DBUG_ASSERT(table_list.table == thd->open_tables);
+              close_thread_table(thd, &thd->open_tables);
+              table_list.table= nullptr;
+              if (ret)
+                goto err;
+            }
+            else if (fk_truncate_illegal_if_parent(thd, table_list.table,
+                                                   "CREATE OR REPLACE"))
+              goto err;
+          }
+
           /* Rename the conflicting table to a temporary table name */
           bool force_if_exists= 0, tmp_error;
           rename_param param;

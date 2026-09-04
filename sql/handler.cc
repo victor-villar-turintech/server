@@ -49,7 +49,6 @@
 #include "mysys_err.h"
 #include "optimizer_defaults.h"
 #include "vector_mhnsw.h"
-#include "sql_truncate.h"      // fk_truncate_illegal_if_parent()
 
 #ifdef WITH_PARTITION_STORAGE_ENGINE
 #include "ha_partition.h"
@@ -7245,60 +7244,6 @@ bool ha_check_if_updates_are_ignored(THD *thd, handlerton *hton,
     DBUG_RETURN(0);                                   // Not shared table
   my_error(ER_SLAVE_IGNORED_SHARED_TABLE, MYF(ME_NOTE), op);
   DBUG_RETURN(1);
-}
-
-
-/**
-   Check if an existing table can be renamed as part of create or replace
-   when replacing an existing table.
-
-   @retval
-   0  ok
-   1  Fatal error from open_table. Error given to user
-
-   @notes
-   The known cases are:
-   - The to-be renamed table is of type InnoDB and has a named foreign key
-*/
-
-static int ha_can_be_renamed_to_backup(THD *thd, TABLE *table)
-{
-  /*
-    We cannot by default use create or replace for a table with foreign keys
-    as there will be dangling references when the table is created.
-    We cannot even allow that when foreign_key_checks are off as
-    the foreign key definition will still point to the renamed table
-    after rename of the orignal table to temporary name.
-   */
-  if (fk_truncate_illegal_if_parent(thd, table, "CREATE OR REPLACE"))
-    return 1;
-  return 0;
-}
-
-
-int ha_check_if_table_can_be_renamed_to_backup(THD *thd, handlerton *hton,
-                                                TABLE_LIST *create_table)
-{
-  int res= 0;
-  Open_table_context ot_ctx(thd, (MYSQL_OPEN_IGNORE_FLUSH |
-                                  MYSQL_OPEN_HAS_MDL_LOCK |
-                                  MYSQL_LOCK_IGNORE_TIMEOUT));
-  if (!(hton->flags & HTON_CHECK_NEEDED_FOR_CREATE_OR_REPLACE))
-    return 0;
-
-  if (create_table->table)                      // Table is locked
-    return ha_can_be_renamed_to_backup(thd, create_table->table);
-
-  create_table->open_strategy= TABLE_LIST::OPEN_NORMAL;
-  if (open_table(thd, create_table, &ot_ctx))
-    return 1;                                   // Table should exists!
-  res= ha_can_be_renamed_to_backup(thd, create_table->table);
-
-  /* New opened tables are always first in the open list */
-  DBUG_ASSERT(create_table->table == thd->open_tables);
-  close_thread_table(thd, &thd->open_tables);
-  create_table->table= 0;
-  return res;
 }
 
 
