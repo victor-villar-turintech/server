@@ -267,20 +267,19 @@ static int aria_backup_file(const struct backup_target *target,
     else
     {
       snprintf(dstpath, len, "%s/%s", target->path, path + dir_prefix);
-      if (CopyFileEx(path, dstpath, NULL, NULL, NULL,
-                     COPY_FILE_NO_BUFFERING))
-        ret= 0;
-      else
-      {
-# if 1 // TODO: remove this; trying to diagnose the exact error
-        DWORD err= GetLastError();
-        fprintf(stderr, "can't create %s: %lu\n", dstpath, err);
-        my_osmaperr(err);
-# else
-        my_osmaperr(GetLastError());
-# endif
-        my_error(ER_CANT_CREATE_FILE, MYF(0), dstpath, errno);
-      }
+      while (!CopyFileEx(path, dstpath, NULL, NULL, NULL,
+                         COPY_FILE_NO_BUFFERING))
+        switch (GetLastError()) {
+        default:
+          my_osmaperr(GetLastError());
+          my_error(ER_CANT_CREATE_FILE, MYF(0), dstpath, errno);
+          goto done;
+        case ERROR_SHARING_VIOLATION:
+        case ERROR_LOCK_VIOLATION:
+          Sleep(10);
+        }
+      ret= 0;
+    done:
       free(dstpath);
     }
   }
@@ -299,7 +298,7 @@ static int aria_backup_file(const struct backup_target *target,
       switch (GetLastError()) {
       case ERROR_SHARING_VIOLATION:
       case ERROR_LOCK_VIOLATION:
-        my_sleep(1000000);
+        Sleep(10);
         continue;
       }
 

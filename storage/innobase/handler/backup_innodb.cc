@@ -76,7 +76,7 @@ static buf_page_t **innodb_backup_batch_wait(buf_page_t **end,
   const page_id_t start
     {space_id, end_page & ~(fil_space_t::BACKUP_BATCH_SIZE - 1)};
   ut_ad(end_page - 1 > start.page_no());
-  for (page_id_t id{space_id, end_page}; id != start; --id)
+  for (page_id_t id{space_id, end_page};; --id)
   {
     auto &chain= buf_pool.page_hash.cell_get(id.fold());
     page_hash_latch &hash_lock{buf_pool.page_hash.lock_get(chain)};
@@ -103,7 +103,7 @@ static buf_page_t **innodb_backup_batch_wait(buf_page_t **end,
         {
           /* Schedule a call of b->write_unfix_try() and b->unfix(). */
           end++;
-          continue;
+          goto next;
         }
         /*
           Freed blocks will not be written back to the file system.
@@ -133,8 +133,10 @@ static buf_page_t **innodb_backup_batch_wait(buf_page_t **end,
     }
     else
       hash_lock.unlock_shared();
+  next:
+    if (id == start)
+      return end;
   }
-  return end;
 }
 
 namespace
@@ -227,7 +229,7 @@ private:
         switch (GetLastError()) {
         case ERROR_SHARING_VIOLATION:
         case ERROR_LOCK_VIOLATION:
-          std::this_thread::sleep_for(std::chrono::seconds(1));
+          Sleep(10);
           continue;
         }
         my_osmaperr(GetLastError());
@@ -875,8 +877,9 @@ private:
       if (final_limit != 0 && page == buf_dblwr.begin())
       {
         /* Copy the rest after the doublewrite buffer. */
+        ut_ad(start == page);
         limit= final_limit;
-        page+= buf_dblwr.size();
+        start= page+= buf_dblwr.size();
       }
       else
         return 0;
@@ -1042,8 +1045,9 @@ private:
             if (final_limit != 0 && !err && page == buf_dblwr.begin())
             {
               /* Copy the rest after the doublewrite buffer. */
+              ut_ad(start == page);
               limit= final_limit;
-              page+= buf_dblwr.size();
+              start= page+= buf_dblwr.size();
             }
             else
               break;
@@ -1072,8 +1076,9 @@ private:
             if (final_limit != 0 && !err && page == buf_dblwr.begin())
             {
               /* Copy the rest after the doublewrite buffer. */
+              ut_ad(start == page);
               limit= final_limit;
-              page+= buf_dblwr.size();
+              start= page+= buf_dblwr.size();
             }
             else
               break;
@@ -1169,7 +1174,8 @@ private:
     if (limit == buf_dblwr.begin() && n_chunk == 3)
     {
       /* Copy the rest after the doublewrite buffer. */
-      page+= buf_dblwr.size();
+      ut_ad(start == page);
+      start= page+= buf_dblwr.size();
       limit= page + uint32_t(chunk[1].length >> srv_page_size_shift);
       goto loop;
     }
@@ -1349,10 +1355,16 @@ public:
       if (lsn >= ctx.checkpoint && lsn < ctx.max_first_lsn)
       {
         /* Copy a middle log file entirely. */
-        if (CopyFileEx(path, basename, nullptr, nullptr, nullptr,
-                       COPY_FILE_NO_BUFFERING))
-          return 0;
-        goto fail;
+        while (!CopyFileEx(path, basename, nullptr, nullptr, nullptr,
+                           COPY_FILE_NO_BUFFERING))
+          switch (GetLastError()) {
+          default:
+            goto fail;
+          case ERROR_SHARING_VIOLATION:
+          case ERROR_LOCK_VIOLATION:
+            Sleep(10);
+          }
+        return 0;
       }
     }
 
@@ -1370,7 +1382,7 @@ public:
       switch (GetLastError()) {
       case ERROR_SHARING_VIOLATION:
       case ERROR_LOCK_VIOLATION:
-        std::this_thread::sleep_for(std::chrono::seconds(1));
+        Sleep(10);
         continue;
       }
       goto fail;
