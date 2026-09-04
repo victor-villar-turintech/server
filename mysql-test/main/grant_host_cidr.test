@@ -1,0 +1,373 @@
+#
+# MDEV-25515 User Account Host Names using CIDR notation
+#
+# CIDR (RFC 4632) is accepted as an input spelling only.  The parser
+# normalises a.b.c.d/prefix into the canonical a.b.c.d/netmask form
+# (sql_yacc.yy user_name -> normalize_masked_host()), so storage,
+# lookup, matching and reporting are unchanged from the pre-existing
+# netmask form, and the two spellings can never yield two accounts.
+#
+--source include/not_embedded.inc
+
+# acl_load() writes this to the error log for every stored host whose
+# mask it refuses to honour; the test creates such a row on purpose.
+call mtr.add_suppression("ignored, the host is not a valid ip/netmask");
+
+--echo #
+--echo # CIDR is stored in the canonical dotted-quad form
+--echo #
+CREATE USER c1@'127.0.0.0/8'   IDENTIFIED BY 'pw';
+CREATE USER c2@'127.0.0.0/24'  IDENTIFIED BY 'pw';
+CREATE USER c3@'127.0.0.1/32'  IDENTIFIED BY 'pw';
+CREATE USER c4@'127.0.0.0/31'  IDENTIFIED BY 'pw';
+CREATE USER c5@'0.0.0.0/1'     IDENTIFIED BY 'pw';
+
+SELECT User, Host FROM mysql.global_priv
+  WHERE User IN ('c1','c2','c3','c4','c5') ORDER BY User;
+SHOW CREATE USER c1@'127.0.0.0/8';
+SHOW GRANTS FOR c2@'127.0.0.0/24';
+
+--echo #
+--echo # The netmask spelling is already canonical and is untouched
+--echo #
+CREATE USER n1@'127.0.0.0/255.0.0.0'     IDENTIFIED BY 'pw';
+CREATE USER n2@'127.0.0.0/255.255.255.0' IDENTIFIED BY 'pw';
+SELECT User, Host FROM mysql.global_priv
+  WHERE User IN ('n1','n2') ORDER BY User;
+
+--echo #
+--echo # Both spellings name the same account, so a second CREATE USER
+--echo # collides with the first instead of creating a duplicate row
+--echo #
+CREATE USER dup@'127.0.0.0/8' IDENTIFIED BY 'pw';
+--error ER_CANNOT_USER
+CREATE USER dup@'127.0.0.0/255.0.0.0' IDENTIFIED BY 'other';
+CREATE USER IF NOT EXISTS dup@'127.0.0.0/255.0.0.0' IDENTIFIED BY 'other';
+SELECT User, Host FROM mysql.global_priv WHERE User='dup';
+
+--echo #
+--echo # Normalisation rebuilds the whole host string, so str2int's
+--echo # leading zeros, sign and leading whitespace cannot create extra
+--echo # accounts either
+--echo #
+--error ER_CANNOT_USER
+CREATE USER dup@'127.000.0.0/8' IDENTIFIED BY 'other';
+--error ER_CANNOT_USER
+CREATE USER dup@'127.0.0.0/+8'  IDENTIFIED BY 'other';
+--error ER_CANNOT_USER
+CREATE USER dup@'127.0.0.0/ 8'  IDENTIFIED BY 'other';
+--error ER_CANNOT_USER
+CREATE USER dup@'127.0.0.0/255.000.0.0' IDENTIFIED BY 'other';
+SELECT User, Host FROM mysql.global_priv WHERE User='dup';
+DROP USER dup@'127.0.0.0/8';
+
+--echo #
+--echo # A mask selecting a single address is dropped, since a bare ip
+--echo # already means exactly that.  All three spellings are one account.
+--echo #
+CREATE USER one@'10.0.0.1' IDENTIFIED BY 'pw';
+--error ER_CANNOT_USER
+CREATE USER one@'10.0.0.1/32' IDENTIFIED BY 'other';
+--error ER_CANNOT_USER
+CREATE USER one@'10.0.0.1/255.255.255.255' IDENTIFIED BY 'other';
+SELECT User, Host FROM mysql.global_priv WHERE User='one';
+SHOW GRANTS FOR one@'10.0.0.1/32';
+DROP USER one@'10.0.0.1/255.255.255.255';
+
+--echo # and the collapse happens whichever spelling created the row
+CREATE USER two@'10.0.0.2/32' IDENTIFIED BY 'pw';
+SELECT User, Host FROM mysql.global_priv WHERE User='two';
+DROP USER two@'10.0.0.2';
+
+--echo #
+--echo # A CIDR-created account authenticates exactly like a netmask one
+--echo #
+connect (con1,127.0.0.1,c1,pw,,$MASTER_MYPORT,);
+connection con1;
+SELECT CURRENT_USER();
+disconnect con1;
+connection default;
+
+connect (con1,127.0.0.1,c2,pw,,$MASTER_MYPORT,);
+connection con1;
+SELECT CURRENT_USER();
+disconnect con1;
+connection default;
+
+connect (con1,127.0.0.1,c3,pw,,$MASTER_MYPORT,);
+connection con1;
+SELECT CURRENT_USER();
+disconnect con1;
+connection default;
+
+connect (con1,127.0.0.1,c4,pw,,$MASTER_MYPORT,);
+connection con1;
+SELECT CURRENT_USER();
+disconnect con1;
+connection default;
+
+connect (con1,127.0.0.1,c5,pw,,$MASTER_MYPORT,);
+connection con1;
+SELECT CURRENT_USER();
+disconnect con1;
+connection default;
+
+--echo #
+--echo # /32 on a network address still matches only that one address,
+--echo # and is stored as the bare ip
+--echo #
+CREATE USER z1@'127.0.0.0/32' IDENTIFIED BY 'pw';
+SELECT User, Host FROM mysql.global_priv WHERE User='z1';
+--replace_result $MASTER_MYSOCK MASTER_SOCKET $MASTER_MYPORT MASTER_PORT
+--error ER_ACCESS_DENIED_ERROR
+connect (con1,127.0.0.1,z1,pw,,$MASTER_MYPORT,);
+DROP USER z1@'127.0.0.0/32';
+
+--echo #
+--echo # Every statement taking a host accepts either spelling and
+--echo # resolves to the same row, in every privilege table
+--echo #
+CREATE DATABASE cidr_db;
+CREATE TABLE cidr_db.t (a INT);
+
+GRANT SELECT ON cidr_db.* TO c1@'127.0.0.0/255.0.0.0';
+SHOW GRANTS FOR c1@'127.0.0.0/8';
+GRANT INSERT ON cidr_db.* TO c1@'127.0.0.0/8';
+SHOW GRANTS FOR c1@'127.0.0.0/255.0.0.0';
+REVOKE SELECT ON cidr_db.* FROM c1@'127.0.0.0/8';
+SELECT User, Host FROM mysql.db WHERE User='c1';
+
+GRANT SELECT ON cidr_db.t TO c1@'127.0.0.0/8';
+SELECT User, Host FROM mysql.tables_priv WHERE User='c1';
+REVOKE SELECT ON cidr_db.t FROM c1@'127.0.0.0/255.0.0.0';
+
+SET PASSWORD FOR c1@'127.0.0.0/8' = PASSWORD('pw2');
+ALTER USER c1@'127.0.0.0/255.0.0.0' IDENTIFIED BY 'pw';
+
+RENAME USER c1@'127.0.0.0/8' TO c1@'127.0.0.0/16';
+SELECT User, Host FROM mysql.global_priv WHERE User='c1';
+SELECT User, Host FROM mysql.db          WHERE User='c1';
+RENAME USER c1@'127.0.0.0/255.255.0.0' TO c1@'127.0.0.0/8';
+
+REVOKE ALL PRIVILEGES, GRANT OPTION FROM c1@'127.0.0.0/255.0.0.0';
+SHOW GRANTS FOR c1@'127.0.0.0/8';
+DROP TABLE cidr_db.t;
+DROP DATABASE cidr_db;
+
+--echo #
+--echo # GRANT auto-creating an account normalises the host too.
+--echo # One case per replace_user_table() caller that can create a row.
+--echo #
+GRANT SELECT ON test.* TO g1@'10.0.0.0/24' IDENTIFIED BY 'pw';
+SELECT User, Host FROM mysql.global_priv WHERE User='g1';
+SELECT User, Host FROM mysql.db          WHERE User='g1';
+DROP USER g1@'10.0.0.0/255.255.255.0';
+
+CREATE TABLE test.t (a INT);
+GRANT SELECT ON test.t TO g2@'10.0.0.0/24' IDENTIFIED BY 'pw';
+SELECT User, Host FROM mysql.global_priv WHERE User='g2';
+SELECT User, Host FROM mysql.tables_priv WHERE User='g2';
+DROP USER g2@'10.0.0.0/255.255.255.0';
+DROP TABLE test.t;
+
+CREATE PROCEDURE test.p1() SELECT 1;
+GRANT EXECUTE ON PROCEDURE test.p1 TO g3@'10.0.0.0/24' IDENTIFIED BY 'pw';
+SELECT User, Host FROM mysql.global_priv WHERE User='g3';
+SELECT User, Host FROM mysql.procs_priv  WHERE User='g3';
+DROP USER g3@'10.0.0.0/255.255.255.0';
+DROP PROCEDURE test.p1;
+
+CREATE ROLE cidr_role;
+GRANT cidr_role TO g4@'10.0.0.0/24' IDENTIFIED BY 'pw';
+SELECT User, Host FROM mysql.global_priv   WHERE User='g4';
+SELECT User, Host FROM mysql.roles_mapping WHERE User='g4';
+DROP USER g4@'10.0.0.0/255.255.255.0';
+DROP ROLE cidr_role;
+
+GRANT PROXY ON ''@'%' TO g5@'10.0.0.0/24' IDENTIFIED BY 'pw';
+SELECT User, Host FROM mysql.global_priv  WHERE User='g5';
+SELECT User, Host FROM mysql.proxies_priv WHERE User='g5';
+DROP USER g5@'10.0.0.0/255.255.255.0';
+
+--echo #
+--echo # DEFINER reaches the same grammar rule and is normalised too
+--echo #
+CREATE USER def@'10.0.0.0/24' IDENTIFIED BY 'pw';
+GRANT ALL ON test.* TO def@'10.0.0.0/255.255.255.0';
+CREATE DEFINER=def@'10.0.0.0/24' VIEW test.v1 AS SELECT 1;
+SELECT definer FROM information_schema.views
+  WHERE table_schema='test' AND table_name='v1';
+DROP VIEW test.v1;
+CREATE DEFINER=def@'10.0.0.0/24' PROCEDURE test.p2() SELECT 1;
+SELECT definer FROM information_schema.routines
+  WHERE routine_schema='test' AND routine_name='p2';
+DROP PROCEDURE test.p2;
+DROP USER def@'10.0.0.0/255.255.255.0';
+
+--echo #
+--echo # A host without '/' is not a masked host and is never touched
+--echo #
+CREATE USER v01@'%';
+CREATE USER v02@'10.0.0.%';
+CREATE USER v03@'127.0.0._';
+CREATE USER v04@'localhost';
+CREATE USER v05@'127.0.0.1';
+CREATE USER v06@'::1';
+SELECT User, Host FROM mysql.global_priv
+  WHERE User LIKE 'v__' ORDER BY User;
+DROP USER v01@'%', v02@'10.0.0.%', v03@'127.0.0._', v04@'localhost',
+          v05@'127.0.0.1', v06@'::1';
+
+--echo #
+--echo # A host containing '/' must be a well formed mask.  These are
+--echo # rejected rather than stored as an account that can never match.
+--echo # normalize_masked_host() leaves them alone - it is
+--echo # valid_masked_host() in replace_user_table() that rejects them.
+--echo #
+--echo # a prefix outside 1..32, or a mask of 0.0.0.0
+--error ER_INVALID_HOST_NETMASK
+CREATE USER e01@'10.0.0.0/33';
+--error ER_INVALID_HOST_NETMASK
+CREATE USER e02@'10.0.0.0/0';
+--error ER_INVALID_HOST_NETMASK
+CREATE USER e03@'10.0.0.0/-1';
+--error ER_INVALID_HOST_NETMASK
+CREATE USER e04@'10.0.0.0/0.0.0.0';
+
+--echo # a non-contiguous mask
+--error ER_INVALID_HOST_NETMASK
+CREATE USER e05@'10.0.0.0/255.0.255.0';
+--error ER_INVALID_HOST_NETMASK
+CREATE USER e06@'10.0.0.0/255.255.0.255';
+
+--echo # an address with host bits set
+--error ER_INVALID_HOST_NETMASK
+CREATE USER e07@'10.1.2.3/24';
+--error ER_INVALID_HOST_NETMASK
+CREATE USER e08@'10.1.2.3/255.255.255.0';
+--error ER_INVALID_HOST_NETMASK
+CREATE USER e09@'127.0.0.0/1';
+
+--echo # not a dotted quad at all, including IPv6 prefixes and wildcards
+--error ER_INVALID_HOST_NETMASK
+CREATE USER e10@'2001:db8::/32';
+--error ER_INVALID_HOST_NETMASK
+CREATE USER e11@'10.0.0.%/24';
+--error ER_INVALID_HOST_NETMASK
+CREATE USER e12@'10.0.0.0/abc';
+--error ER_INVALID_HOST_NETMASK
+CREATE USER e13@'10.0.0.0/';
+--error ER_INVALID_HOST_NETMASK
+CREATE USER e14@'10.0.0.0/24x';
+
+--echo # nothing was created
+SELECT User, Host FROM mysql.global_priv WHERE User LIKE 'e__' ORDER BY User;
+
+--echo #
+--echo # GRANT must not auto-create an account with an invalid mask
+--echo #
+--error ER_INVALID_HOST_NETMASK
+GRANT SELECT ON test.* TO e20@'10.0.0.0/33' IDENTIFIED BY 'pw';
+--error ER_INVALID_HOST_NETMASK
+GRANT SELECT ON test.* TO e21@'10.1.2.3/24' IDENTIFIED BY 'pw';
+SELECT User, Host FROM mysql.global_priv WHERE User LIKE 'e2_';
+
+--echo #
+--echo # The check runs only for rows about to be created, so ALTER USER
+--echo # and REVOKE keep their own errors
+--echo #
+--error ER_CANNOT_USER
+ALTER USER e30@'10.0.0.0/33' IDENTIFIED BY 'pw';
+--error ER_NONEXISTING_GRANT
+REVOKE SELECT ON test.* FROM e30@'10.0.0.0/33';
+
+--echo #
+--echo # RENAME USER validates the target only, and reports the reason
+--echo # as a warning alongside the usual ER_CANNOT_USER
+--echo #
+CREATE USER r1@'127.0.0.0/8' IDENTIFIED BY 'pw';
+--error ER_CANNOT_USER
+RENAME USER r1@'127.0.0.0/8' TO r1@'10.1.2.3/24';
+--error ER_CANNOT_USER
+RENAME USER r1@'127.0.0.0/8' TO r1@'10.0.0.0/255.0.255.0';
+RENAME USER r1@'127.0.0.0/8' TO r1@'10.0.0.0/16';
+SELECT User, Host FROM mysql.global_priv WHERE User='r1';
+DROP USER r1@'10.0.0.0/255.255.0.0';
+
+--echo #
+--echo # A malformed mask can only have been written by a version that
+--echo # did not validate it.  acl_load() skips such a row with a warning
+--echo # to the error log, so it cannot be authenticated as and is not in
+--echo # the in-memory arrays ...
+--echo #
+CREATE USER leg@'10.0.0.0/24' IDENTIFIED BY 'pw';
+UPDATE mysql.global_priv SET Host='10.0.0.0/255.0.255.0' WHERE User='leg';
+FLUSH PRIVILEGES;
+SELECT User, Host FROM mysql.global_priv WHERE User='leg';
+--error ER_NONEXISTING_GRANT
+SHOW GRANTS FOR leg@'10.0.0.0/255.0.255.0';
+
+--echo #
+--echo # ... but the row is still in the table, so it stays renamable and
+--echo # droppable.  normalize_masked_host() must not turn its host into
+--echo # a parse error, and handle_grant_data() finds it through the
+--echo # table even though acl_users does not have it.
+--echo #
+RENAME USER leg@'10.0.0.0/255.0.255.0' TO leg@'10.0.0.0/16';
+SELECT User, Host FROM mysql.global_priv WHERE User='leg';
+FLUSH PRIVILEGES;
+SHOW GRANTS FOR leg@'10.0.0.0/255.255.0.0';
+DROP USER leg@'10.0.0.0/255.255.0.0';
+
+--echo #
+--echo # The same row reached by DROP USER directly
+--echo #
+CREATE USER leg2@'10.0.0.0/24' IDENTIFIED BY 'pw';
+UPDATE mysql.global_priv SET Host='10.1.2.3/255.255.255.0' WHERE User='leg2';
+FLUSH PRIVILEGES;
+DROP USER leg2@'10.1.2.3/255.255.255.0';
+SELECT User, Host FROM mysql.global_priv WHERE User='leg2';
+
+--echo #
+--echo # A CIDR prefix is not the stored form, so a row carrying one can
+--echo # only have been written by hand.  It is skipped on load like any
+--echo # other host the server cannot honour - and it cannot be named by
+--echo # DDL either, because the parser rewrites the name into the
+--echo # canonical form and the row is not under that name.  Hand-written
+--echo # rows have to be removed by hand.
+--echo #
+CREATE USER leg3@'10.0.0.0/24' IDENTIFIED BY 'pw';
+UPDATE mysql.global_priv SET Host='10.0.0.0/24' WHERE User='leg3';
+FLUSH PRIVILEGES;
+SELECT User, Host FROM mysql.global_priv WHERE User='leg3';
+--error ER_NONEXISTING_GRANT
+SHOW GRANTS FOR leg3@'10.0.0.0/24';
+--error ER_CANNOT_USER
+DROP USER leg3@'10.0.0.0/24';
+DELETE FROM mysql.global_priv WHERE User='leg3';
+FLUSH PRIVILEGES;
+
+--echo #
+--echo # Matching survives a reload through acl_load()
+--echo #
+FLUSH PRIVILEGES;
+connect (con1,127.0.0.1,c2,pw,,$MASTER_MYPORT,);
+connection con1;
+SELECT CURRENT_USER();
+disconnect con1;
+connection default;
+
+--echo #
+--echo # Cleanup
+--echo #
+DROP USER c1@'127.0.0.0/8',
+          c2@'127.0.0.0/24',
+          c3@'127.0.0.1/32',
+          c4@'127.0.0.0/31',
+          c5@'0.0.0.0/1',
+          n1@'127.0.0.0/255.0.0.0',
+          n2@'127.0.0.0/255.255.255.0';
+
+#
+# End of MDEV-25515 tests
+#

@@ -339,7 +339,7 @@ ulong role_global_merges= 0, role_db_merges= 0, role_table_merges= 0,
 #ifndef NO_EMBEDDED_ACCESS_CHECKS
 static bool ignore_max_password_errors(const ACL_USER *acl_user);
 static void update_hostname(acl_host_and_ip *host, const char *hostname);
-static bool bad_stored_masked_host(const char *hostname);
+static bool valid_host_mask(const char *hostname);
 static bool show_proxy_grants (THD *, const char *, const char *,
                                char *, size_t);
 static bool show_role_grants(THD *, const char *,
@@ -444,8 +444,8 @@ public:
                         safe_str(host.hostname));
       return TRUE;
     }
-    if (bad_stored_masked_host(host.hostname) ||
-        bad_stored_masked_host(proxied_host.hostname))
+    if (!valid_host_mask(host.hostname) ||
+        !valid_host_mask(proxied_host.hostname))
     {
       sql_print_warning("'proxies_priv' entry '%s@%s %s@%s' "
                         "ignored, the host is not a valid ip/netmask.",
@@ -3448,7 +3448,7 @@ static bool acl_load(THD *thd, const Grant_tables& tables)
                          host.host.hostname, host.db);
         continue;
       }
-      if (bad_stored_masked_host(host.host.hostname))
+      if (!valid_host_mask(host.host.hostname))
       {
         sql_print_warning("'host' entry '%s|%s' "
                           "ignored, the host is not a valid ip/netmask.",
@@ -3536,7 +3536,7 @@ static bool acl_load(THD *thd, const Grant_tables& tables)
         continue;
       }
 
-      if (bad_stored_masked_host(user.host.hostname))
+      if (!valid_host_mask(user.host.hostname))
       {
         sql_print_warning("'user' entry '%s@%s' "
                           "ignored, the host is not a valid ip/netmask.",
@@ -3618,7 +3618,7 @@ static bool acl_load(THD *thd, const Grant_tables& tables)
 		        db.db, db.user, safe_str(db.host.hostname));
       continue;
     }
-    if (bad_stored_masked_host(db.host.hostname))
+    if (!valid_host_mask(db.host.hostname))
     {
       sql_print_warning("'db' entry '%s %s@%s' "
                         "ignored, the host is not a valid ip/netmask.",
@@ -5554,39 +5554,16 @@ LEX_CSTRING normalize_masked_host(THD *thd, const LEX_CSTRING &host)
   wildcard patterns are not masked hosts and are not checked here.
 */
 
-static bool valid_masked_host(const char *str)
+static bool valid_host_mask(const char *hostname)
 {
   long ip, mask;
-  const char *p= calc_ip(str, &ip, '/');
+  const char *p;
 
-  return p && calc_ip(p + 1, &mask, '\0') && valid_masked_ip(ip, mask);
-}
+  if (!hostname || !strchr(hostname, '/'))
+    return true;                          /* not a masked host */
 
-
-/*
-  True if a masked host read from the privilege tables is not one the
-  server can honour.  acl_load() skips such rows with a warning rather
-  than loading them.
-
-  They can only have been written by a version that did not validate the
-  mask, or by hand, and they are not merely useless:
-
-    - a non-contiguous mask such as 10.0.0.0/255.0.255.0 matches the
-      scattered set 10.*.0.*, which is almost certainly not what whoever
-      wrote it intended
-    - an address with host bits set matches nothing at all
-    - a CIDR prefix is not the canonical stored form, so it would load
-      as a literal host string and match nothing.  Writing the row by
-      hand is the only way to get one here; CREATE USER normalises it
-
-  Skipping keeps the row in the table, so DROP USER and RENAME USER can
-  still name it - handle_grant_data() finds it through the table even
-  when it is absent from the in-memory arrays.
-*/
-
-static bool bad_stored_masked_host(const char *hostname)
-{
-  return hostname && strchr(hostname, '/') && !valid_masked_host(hostname);
+  return (p= calc_ip(hostname, &ip, '/')) &&
+         calc_ip(p + 1, &mask, '\0') && valid_masked_ip(ip, mask);
 }
 
 static void update_hostname(acl_host_and_ip *host, const char *hostname)
@@ -5851,8 +5828,7 @@ static int replace_user_table(THD *thd, const User_table &user_table,
       are never re-checked, so an account written by an older version
       stays revocable, renamable and droppable.
     */
-    if (combo->host.str && strchr(combo->host.str, '/') &&
-        !valid_masked_host(combo->host.str))
+    if (!valid_host_mask(combo->host.str))
     {
       my_error(ER_INVALID_HOST_NETMASK, MYF(0), combo->host.str,
                combo->user.str);
@@ -13528,8 +13504,7 @@ bool mysql_rename_user(THD *thd, List <LEX_USER> &list)
       an account with a malformed mask written by an older version can be
       repaired by renaming it onto a valid host.
     */
-    if (user_to->host.str && strchr(user_to->host.str, '/') &&
-        !valid_masked_host(user_to->host.str))
+    if (!valid_host_mask(user_to->host.str))
     {
       push_warning_printf(thd, Sql_condition::WARN_LEVEL_WARN,
                           ER_INVALID_HOST_NETMASK,

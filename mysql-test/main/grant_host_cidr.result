@@ -1,0 +1,415 @@
+call mtr.add_suppression("ignored, the host is not a valid ip/netmask");
+#
+# CIDR is stored in the canonical dotted-quad form
+#
+CREATE USER c1@'127.0.0.0/8'   IDENTIFIED BY 'pw';
+CREATE USER c2@'127.0.0.0/24'  IDENTIFIED BY 'pw';
+CREATE USER c3@'127.0.0.1/32'  IDENTIFIED BY 'pw';
+CREATE USER c4@'127.0.0.0/31'  IDENTIFIED BY 'pw';
+CREATE USER c5@'0.0.0.0/1'     IDENTIFIED BY 'pw';
+SELECT User, Host FROM mysql.global_priv
+WHERE User IN ('c1','c2','c3','c4','c5') ORDER BY User;
+User	Host
+c1	127.0.0.0/255.0.0.0
+c2	127.0.0.0/255.255.255.0
+c3	127.0.0.1
+c4	127.0.0.0/255.255.255.254
+c5	0.0.0.0/128.0.0.0
+SHOW CREATE USER c1@'127.0.0.0/8';
+CREATE USER for c1@127.0.0.0/255.0.0.0
+CREATE USER `c1`@`127.0.0.0/255.0.0.0` IDENTIFIED BY PASSWORD '*D821809F681A40A6E379B50D0463EFAE20BDD122'
+SHOW GRANTS FOR c2@'127.0.0.0/24';
+Grants for c2@127.0.0.0/255.255.255.0
+GRANT USAGE ON *.* TO `c2`@`127.0.0.0/255.255.255.0` IDENTIFIED BY PASSWORD '*D821809F681A40A6E379B50D0463EFAE20BDD122'
+#
+# The netmask spelling is already canonical and is untouched
+#
+CREATE USER n1@'127.0.0.0/255.0.0.0'     IDENTIFIED BY 'pw';
+CREATE USER n2@'127.0.0.0/255.255.255.0' IDENTIFIED BY 'pw';
+SELECT User, Host FROM mysql.global_priv
+WHERE User IN ('n1','n2') ORDER BY User;
+User	Host
+n1	127.0.0.0/255.0.0.0
+n2	127.0.0.0/255.255.255.0
+#
+# Both spellings name the same account, so a second CREATE USER
+# collides with the first instead of creating a duplicate row
+#
+CREATE USER dup@'127.0.0.0/8' IDENTIFIED BY 'pw';
+CREATE USER dup@'127.0.0.0/255.0.0.0' IDENTIFIED BY 'other';
+ERROR HY000: Operation CREATE USER failed for 'dup'@'127.0.0.0/255.0.0.0'
+CREATE USER IF NOT EXISTS dup@'127.0.0.0/255.0.0.0' IDENTIFIED BY 'other';
+Warnings:
+Note	1973	Can't create user 'dup'@'127.0.0.0/255.0.0.0'; it already exists
+SELECT User, Host FROM mysql.global_priv WHERE User='dup';
+User	Host
+dup	127.0.0.0/255.0.0.0
+#
+# Normalisation rebuilds the whole host string, so str2int's
+# leading zeros, sign and leading whitespace cannot create extra
+# accounts either
+#
+CREATE USER dup@'127.000.0.0/8' IDENTIFIED BY 'other';
+ERROR HY000: Operation CREATE USER failed for 'dup'@'127.0.0.0/255.0.0.0'
+CREATE USER dup@'127.0.0.0/+8'  IDENTIFIED BY 'other';
+ERROR HY000: Operation CREATE USER failed for 'dup'@'127.0.0.0/255.0.0.0'
+CREATE USER dup@'127.0.0.0/ 8'  IDENTIFIED BY 'other';
+ERROR HY000: Operation CREATE USER failed for 'dup'@'127.0.0.0/255.0.0.0'
+CREATE USER dup@'127.0.0.0/255.000.0.0' IDENTIFIED BY 'other';
+ERROR HY000: Operation CREATE USER failed for 'dup'@'127.0.0.0/255.0.0.0'
+SELECT User, Host FROM mysql.global_priv WHERE User='dup';
+User	Host
+dup	127.0.0.0/255.0.0.0
+DROP USER dup@'127.0.0.0/8';
+#
+# A mask selecting a single address is dropped, since a bare ip
+# already means exactly that.  All three spellings are one account.
+#
+CREATE USER one@'10.0.0.1' IDENTIFIED BY 'pw';
+CREATE USER one@'10.0.0.1/32' IDENTIFIED BY 'other';
+ERROR HY000: Operation CREATE USER failed for 'one'@'10.0.0.1'
+CREATE USER one@'10.0.0.1/255.255.255.255' IDENTIFIED BY 'other';
+ERROR HY000: Operation CREATE USER failed for 'one'@'10.0.0.1'
+SELECT User, Host FROM mysql.global_priv WHERE User='one';
+User	Host
+one	10.0.0.1
+SHOW GRANTS FOR one@'10.0.0.1/32';
+Grants for one@10.0.0.1
+GRANT USAGE ON *.* TO `one`@`10.0.0.1` IDENTIFIED BY PASSWORD '*D821809F681A40A6E379B50D0463EFAE20BDD122'
+DROP USER one@'10.0.0.1/255.255.255.255';
+# and the collapse happens whichever spelling created the row
+CREATE USER two@'10.0.0.2/32' IDENTIFIED BY 'pw';
+SELECT User, Host FROM mysql.global_priv WHERE User='two';
+User	Host
+two	10.0.0.2
+DROP USER two@'10.0.0.2';
+#
+# A CIDR-created account authenticates exactly like a netmask one
+#
+connect  con1,127.0.0.1,c1,pw,,$MASTER_MYPORT,;
+connection con1;
+SELECT CURRENT_USER();
+CURRENT_USER()
+c1@127.0.0.0/255.0.0.0
+disconnect con1;
+connection default;
+connect  con1,127.0.0.1,c2,pw,,$MASTER_MYPORT,;
+connection con1;
+SELECT CURRENT_USER();
+CURRENT_USER()
+c2@127.0.0.0/255.255.255.0
+disconnect con1;
+connection default;
+connect  con1,127.0.0.1,c3,pw,,$MASTER_MYPORT,;
+connection con1;
+SELECT CURRENT_USER();
+CURRENT_USER()
+c3@127.0.0.1
+disconnect con1;
+connection default;
+connect  con1,127.0.0.1,c4,pw,,$MASTER_MYPORT,;
+connection con1;
+SELECT CURRENT_USER();
+CURRENT_USER()
+c4@127.0.0.0/255.255.255.254
+disconnect con1;
+connection default;
+connect  con1,127.0.0.1,c5,pw,,$MASTER_MYPORT,;
+connection con1;
+SELECT CURRENT_USER();
+CURRENT_USER()
+c5@0.0.0.0/128.0.0.0
+disconnect con1;
+connection default;
+#
+# /32 on a network address still matches only that one address,
+# and is stored as the bare ip
+#
+CREATE USER z1@'127.0.0.0/32' IDENTIFIED BY 'pw';
+SELECT User, Host FROM mysql.global_priv WHERE User='z1';
+User	Host
+z1	127.0.0.0
+connect(127.0.0.1,z1,pw,test,MASTER_PORT,MASTER_SOCKET);
+connect  con1,127.0.0.1,z1,pw,,$MASTER_MYPORT,;
+ERROR 28000: Access denied for user 'z1'@'localhost' (using password: YES)
+DROP USER z1@'127.0.0.0/32';
+#
+# Every statement taking a host accepts either spelling and
+# resolves to the same row, in every privilege table
+#
+CREATE DATABASE cidr_db;
+CREATE TABLE cidr_db.t (a INT);
+GRANT SELECT ON cidr_db.* TO c1@'127.0.0.0/255.0.0.0';
+SHOW GRANTS FOR c1@'127.0.0.0/8';
+Grants for c1@127.0.0.0/255.0.0.0
+GRANT USAGE ON *.* TO `c1`@`127.0.0.0/255.0.0.0` IDENTIFIED BY PASSWORD '*D821809F681A40A6E379B50D0463EFAE20BDD122'
+GRANT SELECT ON `cidr_db`.* TO `c1`@`127.0.0.0/255.0.0.0`
+GRANT INSERT ON cidr_db.* TO c1@'127.0.0.0/8';
+SHOW GRANTS FOR c1@'127.0.0.0/255.0.0.0';
+Grants for c1@127.0.0.0/255.0.0.0
+GRANT USAGE ON *.* TO `c1`@`127.0.0.0/255.0.0.0` IDENTIFIED BY PASSWORD '*D821809F681A40A6E379B50D0463EFAE20BDD122'
+GRANT SELECT, INSERT ON `cidr_db`.* TO `c1`@`127.0.0.0/255.0.0.0`
+REVOKE SELECT ON cidr_db.* FROM c1@'127.0.0.0/8';
+SELECT User, Host FROM mysql.db WHERE User='c1';
+User	Host
+c1	127.0.0.0/255.0.0.0
+GRANT SELECT ON cidr_db.t TO c1@'127.0.0.0/8';
+SELECT User, Host FROM mysql.tables_priv WHERE User='c1';
+User	Host
+c1	127.0.0.0/255.0.0.0
+REVOKE SELECT ON cidr_db.t FROM c1@'127.0.0.0/255.0.0.0';
+SET PASSWORD FOR c1@'127.0.0.0/8' = PASSWORD('pw2');
+ALTER USER c1@'127.0.0.0/255.0.0.0' IDENTIFIED BY 'pw';
+RENAME USER c1@'127.0.0.0/8' TO c1@'127.0.0.0/16';
+SELECT User, Host FROM mysql.global_priv WHERE User='c1';
+User	Host
+c1	127.0.0.0/255.255.0.0
+SELECT User, Host FROM mysql.db          WHERE User='c1';
+User	Host
+c1	127.0.0.0/255.255.0.0
+RENAME USER c1@'127.0.0.0/255.255.0.0' TO c1@'127.0.0.0/8';
+REVOKE ALL PRIVILEGES, GRANT OPTION FROM c1@'127.0.0.0/255.0.0.0';
+SHOW GRANTS FOR c1@'127.0.0.0/8';
+Grants for c1@127.0.0.0/255.0.0.0
+GRANT USAGE ON *.* TO `c1`@`127.0.0.0/255.0.0.0` IDENTIFIED BY PASSWORD '*D821809F681A40A6E379B50D0463EFAE20BDD122'
+DROP TABLE cidr_db.t;
+DROP DATABASE cidr_db;
+#
+# GRANT auto-creating an account normalises the host too.
+# One case per replace_user_table() caller that can create a row.
+#
+GRANT SELECT ON test.* TO g1@'10.0.0.0/24' IDENTIFIED BY 'pw';
+SELECT User, Host FROM mysql.global_priv WHERE User='g1';
+User	Host
+g1	10.0.0.0/255.255.255.0
+SELECT User, Host FROM mysql.db          WHERE User='g1';
+User	Host
+g1	10.0.0.0/255.255.255.0
+DROP USER g1@'10.0.0.0/255.255.255.0';
+CREATE TABLE test.t (a INT);
+GRANT SELECT ON test.t TO g2@'10.0.0.0/24' IDENTIFIED BY 'pw';
+SELECT User, Host FROM mysql.global_priv WHERE User='g2';
+User	Host
+g2	10.0.0.0/255.255.255.0
+SELECT User, Host FROM mysql.tables_priv WHERE User='g2';
+User	Host
+g2	10.0.0.0/255.255.255.0
+DROP USER g2@'10.0.0.0/255.255.255.0';
+DROP TABLE test.t;
+CREATE PROCEDURE test.p1() SELECT 1;
+GRANT EXECUTE ON PROCEDURE test.p1 TO g3@'10.0.0.0/24' IDENTIFIED BY 'pw';
+SELECT User, Host FROM mysql.global_priv WHERE User='g3';
+User	Host
+g3	10.0.0.0/255.255.255.0
+SELECT User, Host FROM mysql.procs_priv  WHERE User='g3';
+User	Host
+g3	10.0.0.0/255.255.255.0
+DROP USER g3@'10.0.0.0/255.255.255.0';
+DROP PROCEDURE test.p1;
+CREATE ROLE cidr_role;
+GRANT cidr_role TO g4@'10.0.0.0/24' IDENTIFIED BY 'pw';
+SELECT User, Host FROM mysql.global_priv   WHERE User='g4';
+User	Host
+g4	10.0.0.0/255.255.255.0
+SELECT User, Host FROM mysql.roles_mapping WHERE User='g4';
+User	Host
+g4	10.0.0.0/255.255.255.0
+DROP USER g4@'10.0.0.0/255.255.255.0';
+DROP ROLE cidr_role;
+GRANT PROXY ON ''@'%' TO g5@'10.0.0.0/24' IDENTIFIED BY 'pw';
+SELECT User, Host FROM mysql.global_priv  WHERE User='g5';
+User	Host
+g5	10.0.0.0/255.255.255.0
+SELECT User, Host FROM mysql.proxies_priv WHERE User='g5';
+User	Host
+g5	10.0.0.0/255.255.255.0
+DROP USER g5@'10.0.0.0/255.255.255.0';
+#
+# DEFINER reaches the same grammar rule and is normalised too
+#
+CREATE USER def@'10.0.0.0/24' IDENTIFIED BY 'pw';
+GRANT ALL ON test.* TO def@'10.0.0.0/255.255.255.0';
+CREATE DEFINER=def@'10.0.0.0/24' VIEW test.v1 AS SELECT 1;
+SELECT definer FROM information_schema.views
+WHERE table_schema='test' AND table_name='v1';
+definer
+def@10.0.0.0/255.255.255.0
+DROP VIEW test.v1;
+CREATE DEFINER=def@'10.0.0.0/24' PROCEDURE test.p2() SELECT 1;
+SELECT definer FROM information_schema.routines
+WHERE routine_schema='test' AND routine_name='p2';
+definer
+def@10.0.0.0/255.255.255.0
+DROP PROCEDURE test.p2;
+DROP USER def@'10.0.0.0/255.255.255.0';
+#
+# A host without '/' is not a masked host and is never touched
+#
+CREATE USER v01@'%';
+CREATE USER v02@'10.0.0.%';
+CREATE USER v03@'127.0.0._';
+CREATE USER v04@'localhost';
+CREATE USER v05@'127.0.0.1';
+CREATE USER v06@'::1';
+SELECT User, Host FROM mysql.global_priv
+WHERE User LIKE 'v__' ORDER BY User;
+User	Host
+v01	%
+v02	10.0.0.%
+v03	127.0.0._
+v04	localhost
+v05	127.0.0.1
+v06	::1
+DROP USER v01@'%', v02@'10.0.0.%', v03@'127.0.0._', v04@'localhost',
+v05@'127.0.0.1', v06@'::1';
+#
+# A host containing '/' must be a well formed mask.  These are
+# rejected rather than stored as an account that can never match.
+# normalize_masked_host() leaves them alone - it is
+# valid_masked_host() in replace_user_table() that rejects them.
+#
+# a prefix outside 1..32, or a mask of 0.0.0.0
+CREATE USER e01@'10.0.0.0/33';
+ERROR HY000: Invalid masked host '10.0.0.0/33' for user 'e01'
+CREATE USER e02@'10.0.0.0/0';
+ERROR HY000: Invalid masked host '10.0.0.0/0' for user 'e02'
+CREATE USER e03@'10.0.0.0/-1';
+ERROR HY000: Invalid masked host '10.0.0.0/-1' for user 'e03'
+CREATE USER e04@'10.0.0.0/0.0.0.0';
+ERROR HY000: Invalid masked host '10.0.0.0/0.0.0.0' for user 'e04'
+# a non-contiguous mask
+CREATE USER e05@'10.0.0.0/255.0.255.0';
+ERROR HY000: Invalid masked host '10.0.0.0/255.0.255.0' for user 'e05'
+CREATE USER e06@'10.0.0.0/255.255.0.255';
+ERROR HY000: Invalid masked host '10.0.0.0/255.255.0.255' for user 'e06'
+# an address with host bits set
+CREATE USER e07@'10.1.2.3/24';
+ERROR HY000: Invalid masked host '10.1.2.3/24' for user 'e07'
+CREATE USER e08@'10.1.2.3/255.255.255.0';
+ERROR HY000: Invalid masked host '10.1.2.3/255.255.255.0' for user 'e08'
+CREATE USER e09@'127.0.0.0/1';
+ERROR HY000: Invalid masked host '127.0.0.0/1' for user 'e09'
+# not a dotted quad at all, including IPv6 prefixes and wildcards
+CREATE USER e10@'2001:db8::/32';
+ERROR HY000: Invalid masked host '2001:db8::/32' for user 'e10'
+CREATE USER e11@'10.0.0.%/24';
+ERROR HY000: Invalid masked host '10.0.0.%/24' for user 'e11'
+CREATE USER e12@'10.0.0.0/abc';
+ERROR HY000: Invalid masked host '10.0.0.0/abc' for user 'e12'
+CREATE USER e13@'10.0.0.0/';
+ERROR HY000: Invalid masked host '10.0.0.0/' for user 'e13'
+CREATE USER e14@'10.0.0.0/24x';
+ERROR HY000: Invalid masked host '10.0.0.0/24x' for user 'e14'
+# nothing was created
+SELECT User, Host FROM mysql.global_priv WHERE User LIKE 'e__' ORDER BY User;
+User	Host
+#
+# GRANT must not auto-create an account with an invalid mask
+#
+GRANT SELECT ON test.* TO e20@'10.0.0.0/33' IDENTIFIED BY 'pw';
+ERROR HY000: Invalid masked host '10.0.0.0/33' for user 'e20'
+GRANT SELECT ON test.* TO e21@'10.1.2.3/24' IDENTIFIED BY 'pw';
+ERROR HY000: Invalid masked host '10.1.2.3/24' for user 'e21'
+SELECT User, Host FROM mysql.global_priv WHERE User LIKE 'e2_';
+User	Host
+#
+# The check runs only for rows about to be created, so ALTER USER
+# and REVOKE keep their own errors
+#
+ALTER USER e30@'10.0.0.0/33' IDENTIFIED BY 'pw';
+ERROR HY000: Operation ALTER USER failed for 'e30'@'10.0.0.0/33'
+REVOKE SELECT ON test.* FROM e30@'10.0.0.0/33';
+ERROR 42000: There is no such grant defined for user 'e30' on host '10.0.0.0/33'
+#
+# RENAME USER validates the target only, and reports the reason
+# as a warning alongside the usual ER_CANNOT_USER
+#
+CREATE USER r1@'127.0.0.0/8' IDENTIFIED BY 'pw';
+RENAME USER r1@'127.0.0.0/8' TO r1@'10.1.2.3/24';
+ERROR HY000: Operation RENAME USER failed for 'r1'@'10.1.2.3/24'
+RENAME USER r1@'127.0.0.0/8' TO r1@'10.0.0.0/255.0.255.0';
+ERROR HY000: Operation RENAME USER failed for 'r1'@'10.0.0.0/255.0.255.0'
+RENAME USER r1@'127.0.0.0/8' TO r1@'10.0.0.0/16';
+SELECT User, Host FROM mysql.global_priv WHERE User='r1';
+User	Host
+r1	10.0.0.0/255.255.0.0
+DROP USER r1@'10.0.0.0/255.255.0.0';
+#
+# A malformed mask can only have been written by a version that
+# did not validate it.  acl_load() skips such a row with a warning
+# to the error log, so it cannot be authenticated as and is not in
+# the in-memory arrays ...
+#
+CREATE USER leg@'10.0.0.0/24' IDENTIFIED BY 'pw';
+UPDATE mysql.global_priv SET Host='10.0.0.0/255.0.255.0' WHERE User='leg';
+FLUSH PRIVILEGES;
+SELECT User, Host FROM mysql.global_priv WHERE User='leg';
+User	Host
+leg	10.0.0.0/255.0.255.0
+SHOW GRANTS FOR leg@'10.0.0.0/255.0.255.0';
+ERROR 42000: There is no such grant defined for user 'leg' on host '10.0.0.0/255.0.255.0'
+#
+# ... but the row is still in the table, so it stays renamable and
+# droppable.  normalize_masked_host() must not turn its host into
+# a parse error, and handle_grant_data() finds it through the
+# table even though acl_users does not have it.
+#
+RENAME USER leg@'10.0.0.0/255.0.255.0' TO leg@'10.0.0.0/16';
+SELECT User, Host FROM mysql.global_priv WHERE User='leg';
+User	Host
+leg	10.0.0.0/255.255.0.0
+FLUSH PRIVILEGES;
+SHOW GRANTS FOR leg@'10.0.0.0/255.255.0.0';
+Grants for leg@10.0.0.0/255.255.0.0
+GRANT USAGE ON *.* TO `leg`@`10.0.0.0/255.255.0.0` IDENTIFIED BY PASSWORD '*D821809F681A40A6E379B50D0463EFAE20BDD122'
+DROP USER leg@'10.0.0.0/255.255.0.0';
+#
+# The same row reached by DROP USER directly
+#
+CREATE USER leg2@'10.0.0.0/24' IDENTIFIED BY 'pw';
+UPDATE mysql.global_priv SET Host='10.1.2.3/255.255.255.0' WHERE User='leg2';
+FLUSH PRIVILEGES;
+DROP USER leg2@'10.1.2.3/255.255.255.0';
+SELECT User, Host FROM mysql.global_priv WHERE User='leg2';
+User	Host
+#
+# A CIDR prefix is not the stored form, so a row carrying one can
+# only have been written by hand.  It is skipped on load like any
+# other host the server cannot honour - and it cannot be named by
+# DDL either, because the parser rewrites the name into the
+# canonical form and the row is not under that name.  Hand-written
+# rows have to be removed by hand.
+#
+CREATE USER leg3@'10.0.0.0/24' IDENTIFIED BY 'pw';
+UPDATE mysql.global_priv SET Host='10.0.0.0/24' WHERE User='leg3';
+FLUSH PRIVILEGES;
+SELECT User, Host FROM mysql.global_priv WHERE User='leg3';
+User	Host
+leg3	10.0.0.0/24
+SHOW GRANTS FOR leg3@'10.0.0.0/24';
+ERROR 42000: There is no such grant defined for user 'leg3' on host '10.0.0.0/255.255.255.0'
+DROP USER leg3@'10.0.0.0/24';
+ERROR HY000: Operation DROP USER failed for 'leg3'@'10.0.0.0/255.255.255.0'
+DELETE FROM mysql.global_priv WHERE User='leg3';
+FLUSH PRIVILEGES;
+#
+# Matching survives a reload through acl_load()
+#
+FLUSH PRIVILEGES;
+connect  con1,127.0.0.1,c2,pw,,$MASTER_MYPORT,;
+connection con1;
+SELECT CURRENT_USER();
+CURRENT_USER()
+c2@127.0.0.0/255.255.255.0
+disconnect con1;
+connection default;
+#
+# Cleanup
+#
+DROP USER c1@'127.0.0.0/8',
+c2@'127.0.0.0/24',
+c3@'127.0.0.1/32',
+c4@'127.0.0.0/31',
+c5@'0.0.0.0/1',
+n1@'127.0.0.0/255.0.0.0',
+n2@'127.0.0.0/255.255.255.0';
