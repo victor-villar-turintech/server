@@ -1752,7 +1752,6 @@ bool buf_flush_list_space(fil_space_t *space, ulint *n_flushed) noexcept
     if (written)
       buf_pool.stat.n_pages_written+= written;
   }
-
   mysql_mutex_lock(&buf_pool.flush_list_mutex);
 
   for (buf_page_t *bpage= UT_LIST_GET_LAST(buf_pool.flush_list); bpage; )
@@ -1795,7 +1794,6 @@ bool buf_flush_list_space(fil_space_t *space, ulint *n_flushed) noexcept
           acquired= false;
           goto was_freed;
         }
-
         mysql_mutex_unlock(&buf_pool.flush_list_mutex);
         const uint32_t page{bpage->id().page_no()};
         const uint32_t backup_page_end{space->backup_page_end()};
@@ -1803,18 +1801,19 @@ bool buf_flush_list_space(fil_space_t *space, ulint *n_flushed) noexcept
             page >= backup_page_end - space->BACKUP_BATCH_SIZE)
         {
           bpage->lock.u_unlock(true);
-        skip:
-          mysql_mutex_lock(&buf_pool.flush_list_mutex);
           may_have_skipped= true;
-          goto done;
         }
-
-        if (bpage->flush(space))
+        else if (bpage->flush(space))
         {
           ++n_flush;
-          mysql_mutex_lock(&buf_pool.mutex);
           if (!--max_n_flush)
-            goto skip;
+          {
+            mysql_mutex_lock(&buf_pool.mutex);
+            mysql_mutex_lock(&buf_pool.flush_list_mutex);
+            may_have_skipped= true;
+            goto done;
+          }
+          mysql_mutex_lock(&buf_pool.mutex);
         }
       }
 
