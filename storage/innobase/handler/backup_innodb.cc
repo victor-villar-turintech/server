@@ -165,7 +165,9 @@ private:
     const lsn_t first_lsn{};
     /** Start LSN of the last log file, or LSN_MAX if not determined yet */
     lsn_t max_first_lsn{};
-    /** Final LSN of the backup, or LSN_MAX if not determined yet */
+    /** Final LSN of the backup, or LSN_MAX if not determined yet;
+    on error, assigned to 0 while holding InnoDB_backup::mutex and
+    exclusive log_sys.latch */
     lsn_t last_lsn{};
     /** size of the first log file */
     const uint64_t first_size{};
@@ -457,7 +459,11 @@ public:
     }
     catch (std::bad_alloc&) {
       queue.clear();
+      mutex.wr_unlock();
       log_sys.backup_stop(old_size, thd);
+      mutex.wr_lock();
+      ctx.state= IDLE;
+      mutex.wr_unlock();
       goto fail;
     }
 
@@ -484,13 +490,21 @@ public:
     ut_ad(&ctx == sink.ha_data);
     ut_ad(ctx.state != IDLE);
     ut_ad(ctx.last_lsn != LSN_MAX || phase == BACKUP_PHASE_START);
-    const size_t size{queue.size()}, non_log_files{non_log};
+    size_t size{queue.size()}, non_log_files{non_log};
     ut_ad(size >= non_log_files);
 
     if (UNIV_UNLIKELY(!size))
     {
+    done:
       mutex.wr_unlock();
-      return 0;
+      return int(size);
+    }
+
+    if (UNIV_UNLIKELY(ctx.last_lsn == 0))
+    {
+      /* An error was flagged. */
+      size= size_t(-1);
+      goto done;
     }
 
     non_log-= size == non_log_files;
@@ -610,24 +624,36 @@ public:
 
   /**
      Determine the logical time of the backup snapshot.
+     @return whether the operation failed
   */
-  void commit() noexcept
+  bool commit() noexcept
   {
     log_sys.latch.wr_lock();
     mutex.wr_lock();
     ut_ad(!non_log);
     ut_ad(ctx.state == PROCESSING);
-    ut_ad(ctx.last_lsn == LSN_MAX);
     ut_ad(ctx.max_first_lsn == LSN_MAX);
+    if (ctx.last_lsn == 0)
+    {
+      log_sys.latch.wr_unlock();
+      mutex.wr_unlock();
+      return true;
+    }
+    ut_ad(ctx.last_lsn == LSN_MAX);
     const lsn_t last_lsn{log_sys.get_lsn()};
     lsn_t lsn{log_sys.get_first_lsn()};
-    /* Schedule the remaining log for copying */
-    queue.emplace_back(lsn);
-    const lsn_t next_lsn{lsn + log_sys.capacity()};
-    if (next_lsn < last_lsn)
-      queue.emplace_back(lsn= next_lsn);
-    ctx.max_first_lsn= lsn;
-    ctx.last_lsn= last_lsn;
+    try {
+      /* Schedule the remaining log for copying */
+      queue.emplace_back(lsn);
+      const lsn_t next_lsn{lsn + log_sys.capacity()};
+      if (next_lsn < last_lsn)
+        queue.emplace_back(lsn= next_lsn);
+      ctx.max_first_lsn= lsn;
+      ctx.last_lsn= last_lsn;
+    }
+    catch (std::bad_alloc&) {
+      ctx.last_lsn= 0;
+    }
     log_sys.latch.wr_unlock();
     mutex.wr_unlock();
     /*
@@ -636,6 +662,7 @@ public:
       necessary, because a system crash will make the backup unusable.
     */
     log_write_up_to(last_lsn, false);
+    return false;
   }
 
   /**
@@ -765,7 +792,15 @@ public:
       mutex.wr_lock();
       if (ctx.state != PROCESSING);
       else if (ctx.last_lsn == LSN_MAX)
-        queue.emplace_back(lsn); /* commit() was not invoked yet */
+      {
+        /* commit() was not invoked yet */
+        try {
+          queue.emplace_back(lsn);
+        }
+        catch (std::bad_alloc&) {
+          ctx.last_lsn= 0;
+        }
+      }
       else if (lsn > ctx.last_lsn && ctx.old_size)
         /*
           The server was running with innodb_log_archive=OFF, and this
@@ -1636,7 +1671,8 @@ void *innodb_backup_start(THD *thd, const backup_target *,
   case BACKUP_PHASE_START:
     return innodb_backup.init(thd);
   case BACKUP_PHASE_NO_COMMIT:
-    innodb_backup.commit();
+    if (innodb_backup.commit())
+      return reinterpret_cast<void*>(-1);
     /* fall through */
   default:
     return sink->ha_data;
