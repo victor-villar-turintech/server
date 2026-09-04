@@ -1125,6 +1125,7 @@ private:
 #endif
 
     if (node == fil_system.sys_space->chain.start &&
+        buf_dblwr.end() &&
         buf_dblwr.begin() + buf_dblwr.size() == buf_dblwr.end() &&
         limit > buf_dblwr.end())
     {
