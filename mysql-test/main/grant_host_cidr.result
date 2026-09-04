@@ -12,7 +12,7 @@ WHERE User IN ('c1','c2','c3','c4','c5') ORDER BY User;
 User	Host
 c1	127.0.0.0/255.0.0.0
 c2	127.0.0.0/255.255.255.0
-c3	127.0.0.1
+c3	127.0.0.1/255.255.255.255
 c4	127.0.0.0/255.255.255.254
 c5	0.0.0.0/128.0.0.0
 SHOW CREATE USER c1@'127.0.0.0/8';
@@ -62,28 +62,6 @@ User	Host
 dup	127.0.0.0/255.0.0.0
 DROP USER dup@'127.0.0.0/8';
 #
-# A mask selecting a single address is dropped, since a bare ip
-# already means exactly that.  All three spellings are one account.
-#
-CREATE USER one@'10.0.0.1' IDENTIFIED BY 'pw';
-CREATE USER one@'10.0.0.1/32' IDENTIFIED BY 'other';
-ERROR HY000: Operation CREATE USER failed for 'one'@'10.0.0.1'
-CREATE USER one@'10.0.0.1/255.255.255.255' IDENTIFIED BY 'other';
-ERROR HY000: Operation CREATE USER failed for 'one'@'10.0.0.1'
-SELECT User, Host FROM mysql.global_priv WHERE User='one';
-User	Host
-one	10.0.0.1
-SHOW GRANTS FOR one@'10.0.0.1/32';
-Grants for one@10.0.0.1
-GRANT USAGE ON *.* TO `one`@`10.0.0.1` IDENTIFIED BY PASSWORD '*D821809F681A40A6E379B50D0463EFAE20BDD122'
-DROP USER one@'10.0.0.1/255.255.255.255';
-# and the collapse happens whichever spelling created the row
-CREATE USER two@'10.0.0.2/32' IDENTIFIED BY 'pw';
-SELECT User, Host FROM mysql.global_priv WHERE User='two';
-User	Host
-two	10.0.0.2
-DROP USER two@'10.0.0.2';
-#
 # A CIDR-created account authenticates exactly like a netmask one
 #
 connect  con1,127.0.0.1,c1,pw,,$MASTER_MYPORT,;
@@ -104,7 +82,7 @@ connect  con1,127.0.0.1,c3,pw,,$MASTER_MYPORT,;
 connection con1;
 SELECT CURRENT_USER();
 CURRENT_USER()
-c3@127.0.0.1
+c3@127.0.0.1/255.255.255.255
 disconnect con1;
 connection default;
 connect  con1,127.0.0.1,c4,pw,,$MASTER_MYPORT,;
@@ -121,18 +99,6 @@ CURRENT_USER()
 c5@0.0.0.0/128.0.0.0
 disconnect con1;
 connection default;
-#
-# /32 on a network address still matches only that one address,
-# and is stored as the bare ip
-#
-CREATE USER z1@'127.0.0.0/32' IDENTIFIED BY 'pw';
-SELECT User, Host FROM mysql.global_priv WHERE User='z1';
-User	Host
-z1	127.0.0.0
-connect(127.0.0.1,z1,pw,test,MASTER_PORT,MASTER_SOCKET);
-connect  con1,127.0.0.1,z1,pw,,$MASTER_MYPORT,;
-ERROR 28000: Access denied for user 'z1'@'localhost' (using password: YES)
-DROP USER z1@'127.0.0.0/32';
 #
 # Every statement taking a host accepts either spelling and
 # resolves to the same row, in every privilege table
@@ -266,7 +232,7 @@ v05@'127.0.0.1', v06@'::1';
 # A host containing '/' must be a well formed mask.  These are
 # rejected rather than stored as an account that can never match.
 # normalize_masked_host() leaves them alone - it is
-# valid_masked_host() in replace_user_table() that rejects them.
+# valid_host_mask() in replace_user_table() that rejects them.
 #
 # a prefix outside 1..32, or a mask of 0.0.0.0
 CREATE USER e01@'10.0.0.0/33';

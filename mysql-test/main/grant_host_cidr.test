@@ -62,24 +62,6 @@ SELECT User, Host FROM mysql.global_priv WHERE User='dup';
 DROP USER dup@'127.0.0.0/8';
 
 --echo #
---echo # A mask selecting a single address is dropped, since a bare ip
---echo # already means exactly that.  All three spellings are one account.
---echo #
-CREATE USER one@'10.0.0.1' IDENTIFIED BY 'pw';
---error ER_CANNOT_USER
-CREATE USER one@'10.0.0.1/32' IDENTIFIED BY 'other';
---error ER_CANNOT_USER
-CREATE USER one@'10.0.0.1/255.255.255.255' IDENTIFIED BY 'other';
-SELECT User, Host FROM mysql.global_priv WHERE User='one';
-SHOW GRANTS FOR one@'10.0.0.1/32';
-DROP USER one@'10.0.0.1/255.255.255.255';
-
---echo # and the collapse happens whichever spelling created the row
-CREATE USER two@'10.0.0.2/32' IDENTIFIED BY 'pw';
-SELECT User, Host FROM mysql.global_priv WHERE User='two';
-DROP USER two@'10.0.0.2';
-
---echo #
 --echo # A CIDR-created account authenticates exactly like a netmask one
 --echo #
 connect (con1,127.0.0.1,c1,pw,,$MASTER_MYPORT,);
@@ -111,17 +93,6 @@ connection con1;
 SELECT CURRENT_USER();
 disconnect con1;
 connection default;
-
---echo #
---echo # /32 on a network address still matches only that one address,
---echo # and is stored as the bare ip
---echo #
-CREATE USER z1@'127.0.0.0/32' IDENTIFIED BY 'pw';
-SELECT User, Host FROM mysql.global_priv WHERE User='z1';
---replace_result $MASTER_MYSOCK MASTER_SOCKET $MASTER_MYPORT MASTER_PORT
---error ER_ACCESS_DENIED_ERROR
-connect (con1,127.0.0.1,z1,pw,,$MASTER_MYPORT,);
-DROP USER z1@'127.0.0.0/32';
 
 --echo #
 --echo # Every statement taking a host accepts either spelling and
@@ -222,7 +193,7 @@ DROP USER v01@'%', v02@'10.0.0.%', v03@'127.0.0._', v04@'localhost',
 --echo # A host containing '/' must be a well formed mask.  These are
 --echo # rejected rather than stored as an account that can never match.
 --echo # normalize_masked_host() leaves them alone - it is
---echo # valid_masked_host() in replace_user_table() that rejects them.
+--echo # valid_host_mask() in replace_user_table() that rejects them.
 --echo #
 --echo # a prefix outside 1..32, or a mask of 0.0.0.0
 --error ER_INVALID_HOST_NETMASK

@@ -5435,28 +5435,22 @@ static const char *calc_ip(const char *ip, long *val, char end)
   return ip;
 }
 
-static const char *calc_cidr(const char *ip, long *val)
+/* Convert CIDR prefix length (1-32) to a 32-bit IPv4 subnet mask. */
+static const char *calc_cidr(const char *prefix_str, long *val)
 {
   long prefix;
-  /*
-    CIDR prefix length must be between 1 and 32.
-    Example - /8  -> 255.0.0.0
-  */
-  if (!(ip=str2int(ip, 10, 0, 32, &prefix)) || *ip != '\0' || !prefix)
+
+  if (!(prefix_str=str2int(prefix_str, 10, 0, 32, &prefix)) ||
+      *prefix_str != '\0' || !prefix)
     return 0;
 
   *val= (long) (uint32) (0xFFFFFFFFU << (32 - prefix));
-  return ip;
+  return prefix_str;
 }
 
 /*
   Check that an address and mask pair can actually match a client.
-
-  The mask must be non-zero and contiguous, and the address must be the
-  network address with no host bits set, since compare_hostname() tests
-  (client_ip & ip_mask) == ip and would otherwise never match.
 */
-
 static bool valid_masked_ip(long ip, long mask)
 {
   ulong inv, m= (ulong) (uint32) mask;
@@ -5468,7 +5462,7 @@ static bool valid_masked_ip(long ip, long mask)
   if (inv & (inv + 1))
     return false;                         /* not contiguous */
 
-  return !(((ulong) (uint32) ip) & inv);  /* host bits must be clear */
+  return !(((ulong) (uint32) ip) & inv);
 }
 
 
@@ -5479,79 +5473,39 @@ static bool valid_masked_ip(long ip, long mask)
     010.0.0.0/+8          -> 10.0.0.0/255.0.0.0
     10.0.0.0/255.0.0.0    -> unchanged, already canonical
 
-  CIDR (RFC 4632) is thus an input spelling only.  Only the dotted-quad
-  form is ever stored, so the two spellings can never produce two
-  accounts for one host, and everything below this point - storage,
-  lookup, matching, SHOW - is unchanged from before CIDR was accepted.
-
-  The whole host is rebuilt from the parsed values rather than only the
-  part after '/', because str2int() also accepts leading zeros, a sign
-  and leading whitespace, and those must not create extra accounts
-  either.
-
-  A mask that selects a single address is dropped altogether, since a
-  bare ip already means exactly that:
-
-    10.0.0.1/32                 -> 10.0.0.1
-    10.0.0.1/255.255.255.255    -> 10.0.0.1
-
-  Anything else is returned unchanged, and no error is raised.  That
-  covers both a host that is not a masked host at all and one whose mask
-  is malformed, and it is deliberate on two counts:
-
-    - DROP USER and RENAME USER must still be able to name a malformed
-      host written by a version that did not validate it
-    - the host reaches valid_masked_host() as the user spelled it, so a
-      rejection quotes what was typed rather than a rewrite of it
-
-  Rejecting a malformed mask is valid_masked_host()'s job, and it runs
-  only for rows about to be created.
+  Anything else is returned unchanged, and no error is raised.
 */
 
 LEX_CSTRING normalize_masked_host(THD *thd, const LEX_CSTRING &host)
 {
   long ip, mask;
   const char *p;
-  /* 255.255.255.255/255.255.255.255 and the terminating NUL */
   char buf[32];
   uint32 a, m;
   size_t len;
 
   if (!host.str || !memchr(host.str, '/', host.length))
-    return host;                          /* not a masked host at all */
+    return host;
   if (!(p= calc_ip(host.str, &ip, '/')))
-    return host;                          /* not a.b.c.d/... - verbatim */
+    return host;
   if (!calc_ip(p + 1, &mask, '\0') && !calc_cidr(p + 1, &mask))
-    return host;                          /* unparseable - verbatim */
+    return host;
   if (!valid_masked_ip(ip, mask))
-    return host;                          /* malformed - verbatim */
+    return host;
 
   a= (uint32) ip;
   m= (uint32) mask;
-  if (m == 0xFFFFFFFFU)
-    len= my_snprintf(buf, sizeof(buf), "%u.%u.%u.%u",
-                     a >> 24, (a >> 16) & 0xFF, (a >> 8) & 0xFF, a & 0xFF);
-  else
-    len= my_snprintf(buf, sizeof(buf), "%u.%u.%u.%u/%u.%u.%u.%u",
-                     a >> 24, (a >> 16) & 0xFF, (a >> 8) & 0xFF, a & 0xFF,
-                     m >> 24, (m >> 16) & 0xFF, (m >> 8) & 0xFF, m & 0xFF);
+  len= my_snprintf(buf, sizeof(buf), "%u.%u.%u.%u/%u.%u.%u.%u",
+                   a >> 24, (a >> 16) & 0xFF, (a >> 8) & 0xFF, a & 0xFF,
+                   m >> 24, (m >> 16) & 0xFF, (m >> 8) & 0xFF, m & 0xFF);
+
   return thd->strmake_lex_cstring(buf, len);
 }
 
 
 /*
   Check that a host given in masked form is well formed:
-
     a.b.c.d/255.255.255.0
-
-  A CIDR prefix is not accepted here on purpose.  normalize_masked_host()
-  has already rewritten every valid a.b.c.d/prefix into the dotted-quad
-  form by the time a host reaches the privilege tables, so a prefix
-  arriving here either failed that validation or never went through the
-  parser - in both cases the row must not be stored.
-
-  Only called for hosts containing '/' - plain hostnames, IPs and
-  wildcard patterns are not masked hosts and are not checked here.
 */
 
 static bool valid_host_mask(const char *hostname)
@@ -14623,7 +14577,6 @@ bool Sql_cmd_grant_table::execute_table_mask(THD *thd)
 {
   LEX  *lex= thd->lex;
   DBUG_ASSERT(lex->first_select_lex()->table_list.first == NULL);
-
 
   if (check_access(thd, m_object_privilege | m_column_privilege_total | GRANT_ACL,
                    m_db.str, NULL, NULL, 1, 0))
