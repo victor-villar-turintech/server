@@ -3536,6 +3536,7 @@ static bool acl_load(THD *thd, const Grant_tables& tables)
         continue;
       }
 
+      /* Skipped rows stay in the table, so DROP and RENAME USER still work */
       if (!valid_host_mask(user.host.hostname))
       {
         sql_print_warning("'user' entry '%s@%s' "
@@ -5449,7 +5450,8 @@ static const char *calc_cidr(const char *prefix_str, long *val)
 }
 
 /*
-  Check that an address and mask pair can actually match a client.
+  compare_hostname() tests (client_ip & ip_mask) == ip, so a zero or
+  non-contiguous mask, or an ip with host bits set, can never match.
 */
 static bool valid_masked_ip(long ip, long mask)
 {
@@ -5473,14 +5475,16 @@ static bool valid_masked_ip(long ip, long mask)
     010.0.0.0/+8          -> 10.0.0.0/255.0.0.0
     10.0.0.0/255.0.0.0    -> unchanged, already canonical
 
-  Anything else is returned unchanged, and no error is raised.
+  Anything else is returned unchanged and no error is raised: DROP USER and
+  RENAME USER must still be able to name a malformed host stored by a
+  version that did not validate it.
 */
 
 LEX_CSTRING normalize_masked_host(THD *thd, const LEX_CSTRING &host)
 {
   long ip, mask;
   const char *p;
-  char buf[32];
+  char buf[32];                 /* 255.255.255.255/255.255.255.255 and NUL */
   uint32 a, m;
   size_t len;
 
@@ -5506,6 +5510,10 @@ LEX_CSTRING normalize_masked_host(THD *thd, const LEX_CSTRING &host)
 /*
   Check that a host given in masked form is well formed:
     a.b.c.d/255.255.255.0
+
+  A CIDR prefix is rejected here on purpose: normalize_masked_host() has
+  already rewritten every valid one, so a prefix reaching this point means
+  the host never went through the parser.
 */
 
 static bool valid_host_mask(const char *hostname)
@@ -5777,11 +5785,7 @@ static int replace_user_table(THD *thd, const User_table &user_table,
     if (!combo->auth)
       combo->auth= &auth_no_password;
 
-    /*
-      Reject a malformed mask before the row is created.  Existing rows
-      are never re-checked, so an account written by an older version
-      stays revocable, renamable and droppable.
-    */
+    /* Only rows about to be created, so an older bad row stays droppable */
     if (!valid_host_mask(combo->host.str))
     {
       my_error(ER_INVALID_HOST_NETMASK, MYF(0), combo->host.str,
@@ -13453,11 +13457,7 @@ bool mysql_rename_user(THD *thd, List <LEX_USER> &list)
     DBUG_ASSERT(!user_from->is_role());
     DBUG_ASSERT(!user_to->is_role());
 
-    /*
-      Validate the rename target only.  The source is left alone so that
-      an account with a malformed mask written by an older version can be
-      repaired by renaming it onto a valid host.
-    */
+    /* Target only, so a bad host can be repaired by renaming it */
     if (!valid_host_mask(user_to->host.str))
     {
       push_warning_printf(thd, Sql_condition::WARN_LEVEL_WARN,
