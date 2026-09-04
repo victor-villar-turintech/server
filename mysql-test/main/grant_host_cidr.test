@@ -339,6 +339,51 @@ DROP USER c1@'127.0.0.0/8',
           n1@'127.0.0.0/255.0.0.0',
           n2@'127.0.0.0/255.255.255.0';
 
+--echo #
+--echo # A malformed mask in tables_priv or procs_priv is skipped too.
+--echo # The account is a valid one, so it still authenticates - only the
+--echo # table or routine privilege is dropped.  Without the check the
+--echo # non-contiguous mask 255.0.255.0 would match 127.0.0.1 and grant
+--echo # access to the whole scattered set 127.*.0.*
+--echo #
+CREATE DATABASE legdb;
+CREATE TABLE legdb.t (a INT);
+CREATE PROCEDURE legdb.p() SELECT 1;
+CREATE USER legt@'%' IDENTIFIED BY 'pw';
+GRANT SELECT  ON legdb.t           TO legt@'%';
+GRANT EXECUTE ON PROCEDURE legdb.p TO legt@'%';
+
+--echo # the grants work to begin with
+connect (con1,127.0.0.1,legt,pw,,$MASTER_MYPORT,);
+connection con1;
+SELECT * FROM legdb.t;
+CALL legdb.p();
+disconnect con1;
+connection default;
+
+UPDATE mysql.tables_priv SET Host='127.0.0.0/255.0.255.0' WHERE User='legt';
+UPDATE mysql.procs_priv  SET Host='127.0.0.0/255.0.255.0' WHERE User='legt';
+FLUSH PRIVILEGES;
+
+--echo # the account still authenticates, but both grants are gone
+connect (con1,127.0.0.1,legt,pw,,$MASTER_MYPORT,);
+connection con1;
+SELECT CURRENT_USER();
+--error ER_TABLEACCESS_DENIED_ERROR
+SELECT * FROM legdb.t;
+--error ER_PROCACCESS_DENIED_ERROR
+CALL legdb.p();
+disconnect con1;
+connection default;
+
+DELETE FROM mysql.tables_priv WHERE User='legt';
+DELETE FROM mysql.procs_priv  WHERE User='legt';
+DROP USER legt@'%';
+DROP PROCEDURE legdb.p;
+DROP TABLE legdb.t;
+DROP DATABASE legdb;
+FLUSH PRIVILEGES;
+
 #
 # End of MDEV-25515 tests
 #

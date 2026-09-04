@@ -9806,6 +9806,16 @@ static bool grant_load(THD *thd,
 	}
       }
 
+      if (!valid_host_mask(mem_check->host.hostname))
+      {
+        sql_print_warning("'tables_priv' entry '%s %s@%s' "
+                          "ignored, the host is not a valid ip/netmask.",
+                          safe_str(mem_check->tname), mem_check->user,
+                          safe_str(mem_check->host.hostname));
+        delete mem_check;
+        continue;
+      }
+
       if (! mem_check->ok())
 	delete mem_check;
       else if (column_priv_insert(mem_check))
@@ -9849,6 +9859,16 @@ static bool grant_load(THD *thd,
             continue;
           }
         }
+
+        if (!valid_host_mask(mem_check->host.hostname))
+        {
+            sql_print_warning("'procs_priv' entry '%s %s@%s' "
+                              "ignored, the host is not a valid ip/netmask.",
+                              safe_str(mem_check->tname), mem_check->user,
+                              safe_str(mem_check->host.hostname));
+            delete mem_check;
+            continue;
+          }
         enum_sp_type type= (enum_sp_type)procs_priv.routine_type()->val_int();
         const Sp_handler *sph= Sp_handler::handler(type);
         if (!sph || !(hash= sph->get_priv_hash()))

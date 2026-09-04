@@ -379,3 +379,48 @@ c4@'127.0.0.0/31',
 c5@'0.0.0.0/1',
 n1@'127.0.0.0/255.0.0.0',
 n2@'127.0.0.0/255.255.255.0';
+#
+# A malformed mask in tables_priv or procs_priv is skipped too.
+# The account is a valid one, so it still authenticates - only the
+# table or routine privilege is dropped.  Without the check the
+# non-contiguous mask 255.0.255.0 would match 127.0.0.1 and grant
+# access to the whole scattered set 127.*.0.*
+#
+CREATE DATABASE legdb;
+CREATE TABLE legdb.t (a INT);
+CREATE PROCEDURE legdb.p() SELECT 1;
+CREATE USER legt@'%' IDENTIFIED BY 'pw';
+GRANT SELECT  ON legdb.t           TO legt@'%';
+GRANT EXECUTE ON PROCEDURE legdb.p TO legt@'%';
+# the grants work to begin with
+connect  con1,127.0.0.1,legt,pw,,$MASTER_MYPORT,;
+connection con1;
+SELECT * FROM legdb.t;
+a
+CALL legdb.p();
+1
+1
+disconnect con1;
+connection default;
+UPDATE mysql.tables_priv SET Host='127.0.0.0/255.0.255.0' WHERE User='legt';
+UPDATE mysql.procs_priv  SET Host='127.0.0.0/255.0.255.0' WHERE User='legt';
+FLUSH PRIVILEGES;
+# the account still authenticates, but both grants are gone
+connect  con1,127.0.0.1,legt,pw,,$MASTER_MYPORT,;
+connection con1;
+SELECT CURRENT_USER();
+CURRENT_USER()
+legt@%
+SELECT * FROM legdb.t;
+ERROR 42000: SELECT command denied to user 'legt'@'localhost' for table `legdb`.`t`
+CALL legdb.p();
+ERROR 42000: execute command denied to user 'legt'@'%' for routine 'legdb.p'
+disconnect con1;
+connection default;
+DELETE FROM mysql.tables_priv WHERE User='legt';
+DELETE FROM mysql.procs_priv  WHERE User='legt';
+DROP USER legt@'%';
+DROP PROCEDURE legdb.p;
+DROP TABLE legdb.t;
+DROP DATABASE legdb;
+FLUSH PRIVILEGES;
