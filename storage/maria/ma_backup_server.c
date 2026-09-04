@@ -274,7 +274,7 @@ static int aria_backup_file(const struct backup_target *target,
       {
 # if 1 // TODO: remove this; trying to diagnose the exact error
         DWORD err= GetLastError();
-        sql_print_error("can't create %s: %lu", dstpath, err);
+        fprintf(stderr, "can't create %s: %lu\n", dstpath, err);
         my_osmaperr(err);
 # else
         my_osmaperr(GetLastError());
