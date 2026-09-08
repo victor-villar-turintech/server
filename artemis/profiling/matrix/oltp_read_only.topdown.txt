@@ -1,0 +1,12 @@
+
+ Performance counter stats for 'CPU(s) 4-7':
+
+ 2,331,354,274,054      cpu_atom/topdown-retiring/                                            
+ 1,917,249,428,785      cpu_atom/topdown-be-bound/                                            
+ 2,542,553,753,253      cpu_atom/topdown-fe-bound/                                            
+   479,446,283,813      cpu_atom/topdown-bad-spec/                                            
+   907,270,860,487      cpu_atom/cycles/                                                      
+ 2,165,968,463,155      cpu_atom/instructions/                                                
+
+      60.060221944 seconds time elapsed
+

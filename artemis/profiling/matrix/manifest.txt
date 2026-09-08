@@ -1,0 +1,9 @@
+timestamp_utc: 20260908T163626Z
+variant:       baseline
+build:         /home/artemis-ai/mariadb/build/baseline
+git_sha:       b2a8c2234dbc276fe3947633c9ffea454badf48f
+server_cpus:   4-7 (E-cores, cpu_atom PMU)
+client_cpus:   8-11
+collect_secs:  60
+vtune:         Intel(R) VTune(TM) Profiler 2026.3.0 (build 632627) Command Line Tool
+sysbench:      sysbench 1.1.0-2e6b7d5

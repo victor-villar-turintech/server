@@ -1,0 +1,1547 @@
+[
+  {
+    "workload_id": 9,
+    "workload": "oltp_distinct_ranges",
+    "tma": {
+      "retiring_pct": 39.74,
+      "back_end_pct": 33.12,
+      "front_end_pct": 19.86,
+      "bad_spec_pct": 7.28,
+      "cpi": 0.34,
+      "ghz_per_core": 22.55
+    },
+    "dominant_bottleneck": "retiring",
+    "suggested_angle": "already retiring efficiently: only fewer instructions helps - strength reduction, batching, SIMD, or removing redundant work",
+    "actionable_hotspots": [
+      {
+        "function": "MY_HASH_ADD",
+        "cpu_seconds": 39.239,
+        "module": "mariadbd",
+        "source_file": "strings_def.h",
+        "unresolved": false,
+        "class": "server",
+        "cpu_pct": 17.99
+      },
+      {
+        "function": "my_uca_scanner_next_expansion_weight",
+        "cpu_seconds": 17.081,
+        "module": "mariadbd",
+        "source_file": "ctype-uca.c",
+        "unresolved": false,
+        "class": "server",
+        "cpu_pct": 7.83
+      },
+      {
+        "function": "my_charlen_utf8mb4",
+        "cpu_seconds": 9.873,
+        "module": "mariadbd",
+        "source_file": "ctype-utf8.c",
+        "unresolved": false,
+        "class": "server",
+        "cpu_pct": 4.53
+      },
+      {
+        "function": "my_ismbchar",
+        "cpu_seconds": 8.893,
+        "module": "mariadbd",
+        "source_file": "m_ctype.h",
+        "unresolved": false,
+        "class": "server",
+        "cpu_pct": 4.08
+      },
+      {
+        "function": "my_uca_level_booster_simple_prefix_cmp",
+        "cpu_seconds": 5.923,
+        "module": "mariadbd",
+        "source_file": "ctype-uca.c",
+        "unresolved": false,
+        "class": "server",
+        "cpu_pct": 2.72
+      },
+      {
+        "function": "skip_trailing_space",
+        "cpu_seconds": 5.336,
+        "module": "mariadbd",
+        "source_file": "strings_def.h",
+        "unresolved": false,
+        "class": "server",
+        "cpu_pct": 2.45
+      },
+      {
+        "function": "my_uca_scanner_next_utf8mb4",
+        "cpu_seconds": 4.402,
+        "module": "mariadbd",
+        "source_file": "ctype-uca-scanner_next.inl",
+        "unresolved": false,
+        "class": "server",
+        "cpu_pct": 2.02
+      },
+      {
+        "function": "hp_write_key",
+        "cpu_seconds": 4.086,
+        "module": "mariadbd",
+        "source_file": "hp_write.c",
+        "unresolved": false,
+        "class": "server",
+        "cpu_pct": 1.87
+      },
+      {
+        "function": "my_uca_hash_sort_utf8mb4",
+        "cpu_seconds": 3.461,
+        "module": "mariadbd",
+        "source_file": "ctype-uca.inl",
+        "unresolved": false,
+        "class": "server",
+        "cpu_pct": 1.59
+      },
+      {
+        "function": "MY_HASH_ADD",
+        "cpu_seconds": 3.264,
+        "module": "mariadbd",
+        "source_file": "strings_def.h",
+        "unresolved": false,
+        "class": "server",
+        "cpu_pct": 1.5
+      }
+    ],
+    "hot_source_lines": [
+      {
+        "source_file": "strings_def.h",
+        "line": 209,
+        "cpu_seconds": 42.503
+      },
+      {
+        "source_file": "ctype-uca.c",
+        "line": 31285,
+        "cpu_seconds": 16.291
+      },
+      {
+        "source_file": "ctype-utf8.c",
+        "line": 3008,
+        "cpu_seconds": 7.31
+      },
+      {
+        "source_file": "m_ctype.h",
+        "line": 1980,
+        "cpu_seconds": 6.118
+      },
+      {
+        "source_file": "strings_def.h",
+        "line": 100,
+        "cpu_seconds": 4.235
+      },
+      {
+        "source_file": "m_ctype.h",
+        "line": 1978,
+        "cpu_seconds": 2.775
+      },
+      {
+        "source_file": "ctype-uca.c",
+        "line": 34319,
+        "cpu_seconds": 2.508
+      },
+      {
+        "source_file": "ctype-uca-scanner_next.inl",
+        "line": 50,
+        "cpu_seconds": 2.048
+      },
+      {
+        "source_file": "ctype-utf8.c",
+        "line": 3030,
+        "cpu_seconds": 1.936
+      },
+      {
+        "source_file": "ctype-uca.inl",
+        "line": 663,
+        "cpu_seconds": 1.652
+      },
+      {
+        "source_file": "ctype-uca.c",
+        "line": 31295,
+        "cpu_seconds": 1.312
+      },
+      {
+        "source_file": "filesort.cc",
+        "line": 2839,
+        "cpu_seconds": 1.092
+      }
+    ],
+    "excluded_time_seconds": {
+      "collector": 11.62,
+      "syscall": 22.7
+    },
+    "all_hotspots": [
+      {
+        "function": "MY_HASH_ADD",
+        "cpu_seconds": 39.239,
+        "module": "mariadbd",
+        "source_file": "strings_def.h",
+        "unresolved": false,
+        "class": "server",
+        "cpu_pct": 17.99
+      },
+      {
+        "function": "my_uca_scanner_next_expansion_weight",
+        "cpu_seconds": 17.081,
+        "module": "mariadbd",
+        "source_file": "ctype-uca.c",
+        "unresolved": false,
+        "class": "server",
+        "cpu_pct": 7.83
+      },
+      {
+        "function": "func@0x823e30",
+        "cpu_seconds": 11.622,
+        "module": "libtpsstool.so",
+        "source_file": "[Unknown]",
+        "unresolved": true,
+        "class": "collector",
+        "cpu_pct": 5.33
+      },
+      {
+        "function": "__memmove_avx_unaligned_erms",
+        "cpu_seconds": 10.504,
+        "module": "libc.so.6",
+        "source_file": "memmove-vec-unaligned-erms.S",
+        "unresolved": false,
+        "class": "syscall",
+        "cpu_pct": 4.82
+      },
+      {
+        "function": "__syscall_cancel_arch",
+        "cpu_seconds": 10.492,
+        "module": "libc.so.6",
+        "source_file": "syscall_cancel.S",
+        "unresolved": false,
+        "class": "syscall",
+        "cpu_pct": 4.81
+      },
+      {
+        "function": "my_charlen_utf8mb4",
+        "cpu_seconds": 9.873,
+        "module": "mariadbd",
+        "source_file": "ctype-utf8.c",
+        "unresolved": false,
+        "class": "server",
+        "cpu_pct": 4.53
+      },
+      {
+        "function": "my_ismbchar",
+        "cpu_seconds": 8.893,
+        "module": "mariadbd",
+        "source_file": "m_ctype.h",
+        "unresolved": false,
+        "class": "server",
+        "cpu_pct": 4.08
+      },
+      {
+        "function": "my_uca_level_booster_simple_prefix_cmp",
+        "cpu_seconds": 5.923,
+        "module": "mariadbd",
+        "source_file": "ctype-uca.c",
+        "unresolved": false,
+        "class": "server",
+        "cpu_pct": 2.72
+      },
+      {
+        "function": "skip_trailing_space",
+        "cpu_seconds": 5.336,
+        "module": "mariadbd",
+        "source_file": "strings_def.h",
+        "unresolved": false,
+        "class": "server",
+        "cpu_pct": 2.45
+      },
+      {
+        "function": "my_uca_scanner_next_utf8mb4",
+        "cpu_seconds": 4.402,
+        "module": "mariadbd",
+        "source_file": "ctype-uca-scanner_next.inl",
+        "unresolved": false,
+        "class": "server",
+        "cpu_pct": 2.02
+      },
+      {
+        "function": "hp_write_key",
+        "cpu_seconds": 4.086,
+        "module": "mariadbd",
+        "source_file": "hp_write.c",
+        "unresolved": false,
+        "class": "server",
+        "cpu_pct": 1.87
+      },
+      {
+        "function": "my_uca_hash_sort_utf8mb4",
+        "cpu_seconds": 3.461,
+        "module": "mariadbd",
+        "source_file": "ctype-uca.inl",
+        "unresolved": false,
+        "class": "server",
+        "cpu_pct": 1.59
+      },
+      {
+        "function": "MY_HASH_ADD",
+        "cpu_seconds": 3.264,
+        "module": "mariadbd",
+        "source_file": "strings_def.h",
+        "unresolved": false,
+        "class": "server",
+        "cpu_pct": 1.5
+      },
+      {
+        "function": "my_qsort2",
+        "cpu_seconds": 2.92,
+        "module": "mariadbd",
+        "source_file": "mf_qsort.c",
+        "unresolved": false,
+        "class": "server",
+        "cpu_pct": 1.34
+      },
+      {
+        "function": "my_charpos_mb",
+        "cpu_seconds": 2.337,
+        "module": "mariadbd",
+        "source_file": "ctype-mb.c",
+        "unresolved": false,
+        "class": "server",
+        "cpu_pct": 1.07
+      }
+    ]
+  },
+  {
+    "workload_id": 10,
+    "workload": "tpcb_key",
+    "tma": {
+      "retiring_pct": 16.84,
+      "back_end_pct": 25.42,
+      "front_end_pct": 52.03,
+      "bad_spec_pct": 5.72,
+      "cpi": 0.83,
+      "ghz_per_core": 22.52
+    },
+    "dominant_bottleneck": "front_end",
+    "suggested_angle": "instruction-supply bound: shrink instruction footprint on the hot path - reduce inlining of cold branches, hoist cold/error paths out of line, merge duplicated call sites, avoid megamorphic dispatch",
+    "actionable_hotspots": [
+      {
+        "function": "cmp_dtuple_rec_bytes",
+        "cpu_seconds": 12.349,
+        "module": "mariadbd",
+        "source_file": "page0cur.cc",
+        "unresolved": false,
+        "class": "server",
+        "cpu_pct": 6.67
+      },
+      {
+        "function": "page_cur_dtuple_cmp<false>",
+        "cpu_seconds": 1.64,
+        "module": "mariadbd",
+        "source_file": "page0cur.cc",
+        "unresolved": false,
+        "class": "server",
+        "cpu_pct": 0.89
+      },
+      {
+        "function": "alloc_root",
+        "cpu_seconds": 1.44,
+        "module": "mariadbd",
+        "source_file": "my_alloc.c",
+        "unresolved": false,
+        "class": "server",
+        "cpu_pct": 0.78
+      },
+      {
+        "function": "my_betoh64",
+        "cpu_seconds": 1.242,
+        "module": "mariadbd",
+        "source_file": "my_byteorder.h",
+        "unresolved": false,
+        "class": "server",
+        "cpu_pct": 0.67
+      },
+      {
+        "function": "btr_cur_t::search_leaf",
+        "cpu_seconds": 1.071,
+        "module": "mariadbd",
+        "source_file": "btr0cur.cc",
+        "unresolved": false,
+        "class": "server",
+        "cpu_pct": 0.58
+      },
+      {
+        "function": "mysql_execute_command",
+        "cpu_seconds": 0.959,
+        "module": "mariadbd",
+        "source_file": "sql_parse.cc",
+        "unresolved": false,
+        "class": "server",
+        "cpu_pct": 0.52
+      },
+      {
+        "function": "cmp_data",
+        "cpu_seconds": 0.957,
+        "module": "mariadbd",
+        "source_file": "rem0cmp.cc",
+        "unresolved": false,
+        "class": "server",
+        "cpu_pct": 0.52
+      },
+      {
+        "function": "std::__atomic_base<unsigned int>::fetch_sub",
+        "cpu_seconds": 0.838,
+        "module": "mariadbd",
+        "source_file": "atomic_base.h",
+        "unresolved": false,
+        "class": "server",
+        "cpu_pct": 0.45
+      },
+      {
+        "function": "l_find",
+        "cpu_seconds": 0.827,
+        "module": "mariadbd",
+        "source_file": "lf_hash.cc",
+        "unresolved": false,
+        "class": "server",
+        "cpu_pct": 0.45
+      },
+      {
+        "function": "page_cur_search_with_match",
+        "cpu_seconds": 0.803,
+        "module": "mariadbd",
+        "source_file": "page0cur.cc",
+        "unresolved": false,
+        "class": "server",
+        "cpu_pct": 0.43
+      }
+    ],
+    "hot_source_lines": [
+      {
+        "source_file": "page0cur.cc",
+        "line": 103,
+        "cpu_seconds": 6.881
+      },
+      {
+        "source_file": "page0cur.cc",
+        "line": 85,
+        "cpu_seconds": 2.901
+      },
+      {
+        "source_file": "my_byteorder.h",
+        "line": 56,
+        "cpu_seconds": 1.401
+      },
+      {
+        "source_file": "my_byteorder.h",
+        "line": 92,
+        "cpu_seconds": 1.252
+      },
+      {
+        "source_file": "srw_lock.h",
+        "line": 332,
+        "cpu_seconds": 1.239
+      },
+      {
+        "source_file": "atomic_base.h",
+        "line": 641,
+        "cpu_seconds": 0.928
+      },
+      {
+        "source_file": "page0cur.cc",
+        "line": 231,
+        "cpu_seconds": 0.869
+      },
+      {
+        "source_file": "smmintrin.h",
+        "line": 843,
+        "cpu_seconds": 0.789
+      },
+      {
+        "source_file": "stl_algobase.h",
+        "line": 239,
+        "cpu_seconds": 0.703
+      },
+      {
+        "source_file": "sql_class.h",
+        "line": 3514,
+        "cpu_seconds": 0.56
+      },
+      {
+        "source_file": "cancellation.c",
+        "line": 38,
+        "cpu_seconds": 0.541
+      },
+      {
+        "source_file": "pthread_mutex_lock.c",
+        "line": 137,
+        "cpu_seconds": 0.53
+      }
+    ],
+    "excluded_time_seconds": {
+      "collector": 33.71,
+      "syscall": 42.3
+    },
+    "all_hotspots": [
+      {
+        "function": "func@0x823e30",
+        "cpu_seconds": 32.656,
+        "module": "libtpsstool.so",
+        "source_file": "[Unknown]",
+        "unresolved": true,
+        "class": "collector",
+        "cpu_pct": 17.65
+      },
+      {
+        "function": "__syscall_cancel_arch",
+        "cpu_seconds": 23.409,
+        "module": "libc.so.6",
+        "source_file": "syscall_cancel.S",
+        "unresolved": false,
+        "class": "syscall",
+        "cpu_pct": 12.65
+      },
+      {
+        "function": "cmp_dtuple_rec_bytes",
+        "cpu_seconds": 12.349,
+        "module": "mariadbd",
+        "source_file": "page0cur.cc",
+        "unresolved": false,
+        "class": "server",
+        "cpu_pct": 6.67
+      },
+      {
+        "function": "syscall",
+        "cpu_seconds": 5.865,
+        "module": "libc.so.6",
+        "source_file": "syscall.S",
+        "unresolved": false,
+        "class": "syscall",
+        "cpu_pct": 3.17
+      },
+      {
+        "function": "OS_BARESYSCALL_DoCallAsmIntel64Linux",
+        "cpu_seconds": 2.986,
+        "module": "libc-dynamic.so",
+        "source_file": "[Unknown]",
+        "unresolved": false,
+        "class": "syscall",
+        "cpu_pct": 1.61
+      },
+      {
+        "function": "__memmove_avx_unaligned_erms",
+        "cpu_seconds": 2.366,
+        "module": "libc.so.6",
+        "source_file": "memmove-vec-unaligned-erms.S",
+        "unresolved": false,
+        "class": "syscall",
+        "cpu_pct": 1.28
+      },
+      {
+        "function": "__memcmp_avx2_movbe",
+        "cpu_seconds": 2.345,
+        "module": "libc.so.6",
+        "source_file": "memcmp-avx2-movbe.S",
+        "unresolved": false,
+        "class": "syscall",
+        "cpu_pct": 1.27
+      },
+      {
+        "function": "___pthread_mutex_lock",
+        "cpu_seconds": 2.171,
+        "module": "libc.so.6",
+        "source_file": "pthread_mutex_lock.c",
+        "unresolved": false,
+        "class": "syscall",
+        "cpu_pct": 1.17
+      },
+      {
+        "function": "page_cur_dtuple_cmp<false>",
+        "cpu_seconds": 1.64,
+        "module": "mariadbd",
+        "source_file": "page0cur.cc",
+        "unresolved": false,
+        "class": "server",
+        "cpu_pct": 0.89
+      },
+      {
+        "function": "alloc_root",
+        "cpu_seconds": 1.44,
+        "module": "mariadbd",
+        "source_file": "my_alloc.c",
+        "unresolved": false,
+        "class": "server",
+        "cpu_pct": 0.78
+      },
+      {
+        "function": "func@0x9b0",
+        "cpu_seconds": 1.337,
+        "module": "[vdso]",
+        "source_file": "[Unknown]",
+        "unresolved": true,
+        "class": "other",
+        "cpu_pct": 0.72
+      },
+      {
+        "function": "my_betoh64",
+        "cpu_seconds": 1.242,
+        "module": "mariadbd",
+        "source_file": "my_byteorder.h",
+        "unresolved": false,
+        "class": "server",
+        "cpu_pct": 0.67
+      },
+      {
+        "function": "btr_cur_t::search_leaf",
+        "cpu_seconds": 1.071,
+        "module": "mariadbd",
+        "source_file": "btr0cur.cc",
+        "unresolved": false,
+        "class": "server",
+        "cpu_pct": 0.58
+      },
+      {
+        "function": "mysql_execute_command",
+        "cpu_seconds": 0.959,
+        "module": "mariadbd",
+        "source_file": "sql_parse.cc",
+        "unresolved": false,
+        "class": "server",
+        "cpu_pct": 0.52
+      },
+      {
+        "function": "cmp_data",
+        "cpu_seconds": 0.957,
+        "module": "mariadbd",
+        "source_file": "rem0cmp.cc",
+        "unresolved": false,
+        "class": "server",
+        "cpu_pct": 0.52
+      }
+    ]
+  },
+  {
+    "workload_id": 11,
+    "workload": "tpcb_no_key",
+    "tma": {
+      "retiring_pct": 16.59,
+      "back_end_pct": 26.12,
+      "front_end_pct": 52.24,
+      "bad_spec_pct": 5.04,
+      "cpi": 0.85,
+      "ghz_per_core": 22.42
+    },
+    "dominant_bottleneck": "front_end",
+    "suggested_angle": "instruction-supply bound: shrink instruction footprint on the hot path - reduce inlining of cold branches, hoist cold/error paths out of line, merge duplicated call sites, avoid megamorphic dispatch",
+    "actionable_hotspots": [
+      {
+        "function": "cmp_dtuple_rec_bytes",
+        "cpu_seconds": 9.114,
+        "module": "mariadbd",
+        "source_file": "page0cur.cc",
+        "unresolved": false,
+        "class": "server",
+        "cpu_pct": 5.09
+      },
+      {
+        "function": "alloc_root",
+        "cpu_seconds": 1.627,
+        "module": "mariadbd",
+        "source_file": "my_alloc.c",
+        "unresolved": false,
+        "class": "server",
+        "cpu_pct": 0.91
+      },
+      {
+        "function": "page_cur_dtuple_cmp<false>",
+        "cpu_seconds": 1.27,
+        "module": "mariadbd",
+        "source_file": "page0cur.cc",
+        "unresolved": false,
+        "class": "server",
+        "cpu_pct": 0.71
+      },
+      {
+        "function": "my_betoh64",
+        "cpu_seconds": 1.101,
+        "module": "mariadbd",
+        "source_file": "my_byteorder.h",
+        "unresolved": false,
+        "class": "server",
+        "cpu_pct": 0.62
+      },
+      {
+        "function": "mysql_execute_command",
+        "cpu_seconds": 0.948,
+        "module": "mariadbd",
+        "source_file": "sql_parse.cc",
+        "unresolved": false,
+        "class": "server",
+        "cpu_pct": 0.53
+      },
+      {
+        "function": "btr_cur_t::search_leaf",
+        "cpu_seconds": 0.937,
+        "module": "mariadbd",
+        "source_file": "btr0cur.cc",
+        "unresolved": false,
+        "class": "server",
+        "cpu_pct": 0.52
+      },
+      {
+        "function": "cmp_data",
+        "cpu_seconds": 0.922,
+        "module": "mariadbd",
+        "source_file": "rem0cmp.cc",
+        "unresolved": false,
+        "class": "server",
+        "cpu_pct": 0.52
+      },
+      {
+        "function": "JOIN::prepare",
+        "cpu_seconds": 0.851,
+        "module": "mariadbd",
+        "source_file": "sql_select.cc",
+        "unresolved": false,
+        "class": "server",
+        "cpu_pct": 0.48
+      },
+      {
+        "function": "Sql_cmd_update::update_single_table",
+        "cpu_seconds": 0.76,
+        "module": "mariadbd",
+        "source_file": "sql_update.cc",
+        "unresolved": false,
+        "class": "server",
+        "cpu_pct": 0.42
+      },
+      {
+        "function": "build_template_field",
+        "cpu_seconds": 0.76,
+        "module": "mariadbd",
+        "source_file": "ha_innodb.cc",
+        "unresolved": false,
+        "class": "server",
+        "cpu_pct": 0.42
+      }
+    ],
+    "hot_source_lines": [
+      {
+        "source_file": "page0cur.cc",
+        "line": 103,
+        "cpu_seconds": 5.129
+      },
+      {
+        "source_file": "page0cur.cc",
+        "line": 85,
+        "cpu_seconds": 2.669
+      },
+      {
+        "source_file": "smmintrin.h",
+        "line": 843,
+        "cpu_seconds": 1.237
+      },
+      {
+        "source_file": "my_byteorder.h",
+        "line": 92,
+        "cpu_seconds": 1.111
+      },
+      {
+        "source_file": "my_byteorder.h",
+        "line": 56,
+        "cpu_seconds": 1.03
+      },
+      {
+        "source_file": "srw_lock.h",
+        "line": 332,
+        "cpu_seconds": 0.893
+      },
+      {
+        "source_file": "pthread_mutex_lock.c",
+        "line": 137,
+        "cpu_seconds": 0.85
+      },
+      {
+        "source_file": "atomic_base.h",
+        "line": 641,
+        "cpu_seconds": 0.741
+      },
+      {
+        "source_file": "stl_algobase.h",
+        "line": 239,
+        "cpu_seconds": 0.704
+      },
+      {
+        "source_file": "pthread_mutex_lock.c",
+        "line": 160,
+        "cpu_seconds": 0.638
+      },
+      {
+        "source_file": "page0cur.cc",
+        "line": 231,
+        "cpu_seconds": 0.597
+      },
+      {
+        "source_file": "sql_class.h",
+        "line": 3514,
+        "cpu_seconds": 0.548
+      }
+    ],
+    "excluded_time_seconds": {
+      "collector": 35.39,
+      "syscall": 44.19
+    },
+    "all_hotspots": [
+      {
+        "function": "func@0x823e30",
+        "cpu_seconds": 34.337,
+        "module": "libtpsstool.so",
+        "source_file": "[Unknown]",
+        "unresolved": true,
+        "class": "collector",
+        "cpu_pct": 19.19
+      },
+      {
+        "function": "__syscall_cancel_arch",
+        "cpu_seconds": 22.715,
+        "module": "libc.so.6",
+        "source_file": "syscall_cancel.S",
+        "unresolved": false,
+        "class": "syscall",
+        "cpu_pct": 12.69
+      },
+      {
+        "function": "cmp_dtuple_rec_bytes",
+        "cpu_seconds": 9.114,
+        "module": "mariadbd",
+        "source_file": "page0cur.cc",
+        "unresolved": false,
+        "class": "server",
+        "cpu_pct": 5.09
+      },
+      {
+        "function": "syscall",
+        "cpu_seconds": 8.173,
+        "module": "libc.so.6",
+        "source_file": "syscall.S",
+        "unresolved": false,
+        "class": "syscall",
+        "cpu_pct": 4.57
+      },
+      {
+        "function": "OS_BARESYSCALL_DoCallAsmIntel64Linux",
+        "cpu_seconds": 3.36,
+        "module": "libc-dynamic.so",
+        "source_file": "[Unknown]",
+        "unresolved": false,
+        "class": "syscall",
+        "cpu_pct": 1.88
+      },
+      {
+        "function": "___pthread_mutex_lock",
+        "cpu_seconds": 3.251,
+        "module": "libc.so.6",
+        "source_file": "pthread_mutex_lock.c",
+        "unresolved": false,
+        "class": "syscall",
+        "cpu_pct": 1.82
+      },
+      {
+        "function": "__memmove_avx_unaligned_erms",
+        "cpu_seconds": 2.6,
+        "module": "libc.so.6",
+        "source_file": "memmove-vec-unaligned-erms.S",
+        "unresolved": false,
+        "class": "syscall",
+        "cpu_pct": 1.45
+      },
+      {
+        "function": "__memcmp_avx2_movbe",
+        "cpu_seconds": 1.721,
+        "module": "libc.so.6",
+        "source_file": "memcmp-avx2-movbe.S",
+        "unresolved": false,
+        "class": "syscall",
+        "cpu_pct": 0.96
+      },
+      {
+        "function": "alloc_root",
+        "cpu_seconds": 1.627,
+        "module": "mariadbd",
+        "source_file": "my_alloc.c",
+        "unresolved": false,
+        "class": "server",
+        "cpu_pct": 0.91
+      },
+      {
+        "function": "page_cur_dtuple_cmp<false>",
+        "cpu_seconds": 1.27,
+        "module": "mariadbd",
+        "source_file": "page0cur.cc",
+        "unresolved": false,
+        "class": "server",
+        "cpu_pct": 0.71
+      },
+      {
+        "function": "func@0x9b0",
+        "cpu_seconds": 1.127,
+        "module": "[vdso]",
+        "source_file": "[Unknown]",
+        "unresolved": true,
+        "class": "other",
+        "cpu_pct": 0.63
+      },
+      {
+        "function": "my_betoh64",
+        "cpu_seconds": 1.101,
+        "module": "mariadbd",
+        "source_file": "my_byteorder.h",
+        "unresolved": false,
+        "class": "server",
+        "cpu_pct": 0.62
+      },
+      {
+        "function": "mysql_execute_command",
+        "cpu_seconds": 0.948,
+        "module": "mariadbd",
+        "source_file": "sql_parse.cc",
+        "unresolved": false,
+        "class": "server",
+        "cpu_pct": 0.53
+      },
+      {
+        "function": "btr_cur_t::search_leaf",
+        "cpu_seconds": 0.937,
+        "module": "mariadbd",
+        "source_file": "btr0cur.cc",
+        "unresolved": false,
+        "class": "server",
+        "cpu_pct": 0.52
+      },
+      {
+        "function": "cmp_data",
+        "cpu_seconds": 0.922,
+        "module": "mariadbd",
+        "source_file": "rem0cmp.cc",
+        "unresolved": false,
+        "class": "server",
+        "cpu_pct": 0.52
+      }
+    ]
+  },
+  {
+    "workload_id": 5,
+    "workload": "oltp_point_select",
+    "tma": {
+      "retiring_pct": 16.0,
+      "back_end_pct": 21.92,
+      "front_end_pct": 58.43,
+      "bad_spec_pct": 3.65,
+      "cpi": 0.87,
+      "ghz_per_core": 22.74
+    },
+    "dominant_bottleneck": "front_end",
+    "suggested_angle": "instruction-supply bound: shrink instruction footprint on the hot path - reduce inlining of cold branches, hoist cold/error paths out of line, merge duplicated call sites, avoid megamorphic dispatch",
+    "actionable_hotspots": [
+      {
+        "function": "cmp_dtuple_rec_bytes",
+        "cpu_seconds": 6.44,
+        "module": "mariadbd",
+        "source_file": "page0cur.cc",
+        "unresolved": false,
+        "class": "server",
+        "cpu_pct": 4.53
+      },
+      {
+        "function": "alloc_root",
+        "cpu_seconds": 1.8,
+        "module": "mariadbd",
+        "source_file": "my_alloc.c",
+        "unresolved": false,
+        "class": "server",
+        "cpu_pct": 1.27
+      },
+      {
+        "function": "l_find",
+        "cpu_seconds": 1.56,
+        "module": "mariadbd",
+        "source_file": "lf_hash.cc",
+        "unresolved": false,
+        "class": "server",
+        "cpu_pct": 1.1
+      },
+      {
+        "function": "make_join_statistics",
+        "cpu_seconds": 1.35,
+        "module": "mariadbd",
+        "source_file": "sql_select.cc",
+        "unresolved": false,
+        "class": "server",
+        "cpu_pct": 0.95
+      },
+      {
+        "function": "my_betoh64",
+        "cpu_seconds": 1.1,
+        "module": "mariadbd",
+        "source_file": "my_byteorder.h",
+        "unresolved": false,
+        "class": "server",
+        "cpu_pct": 0.77
+      },
+      {
+        "function": "row_search_mvcc<InnoDBPolicy<(bool)1, (bool)1>>",
+        "cpu_seconds": 1.03,
+        "module": "mariadbd",
+        "source_file": "row0sel.cc",
+        "unresolved": false,
+        "class": "server",
+        "cpu_pct": 0.72
+      },
+      {
+        "function": "JOIN::prepare",
+        "cpu_seconds": 0.9,
+        "module": "mariadbd",
+        "source_file": "sql_select.cc",
+        "unresolved": false,
+        "class": "server",
+        "cpu_pct": 0.63
+      },
+      {
+        "function": "dispatch_command",
+        "cpu_seconds": 0.86,
+        "module": "mariadbd",
+        "source_file": "sql_parse.cc",
+        "unresolved": false,
+        "class": "server",
+        "cpu_pct": 0.6
+      },
+      {
+        "function": "btr_cur_t::search_leaf",
+        "cpu_seconds": 0.85,
+        "module": "mariadbd",
+        "source_file": "btr0cur.cc",
+        "unresolved": false,
+        "class": "server",
+        "cpu_pct": 0.6
+      },
+      {
+        "function": "JOIN::optimize_stage2",
+        "cpu_seconds": 0.841,
+        "module": "mariadbd",
+        "source_file": "sql_select.cc",
+        "unresolved": false,
+        "class": "server",
+        "cpu_pct": 0.59
+      }
+    ],
+    "hot_source_lines": [
+      {
+        "source_file": "page0cur.cc",
+        "line": 103,
+        "cpu_seconds": 3.64
+      },
+      {
+        "source_file": "page0cur.cc",
+        "line": 85,
+        "cpu_seconds": 1.52
+      },
+      {
+        "source_file": "my_byteorder.h",
+        "line": 92,
+        "cpu_seconds": 1.1
+      },
+      {
+        "source_file": "sql_class.h",
+        "line": 3514,
+        "cpu_seconds": 0.78
+      },
+      {
+        "source_file": "stl_algobase.h",
+        "line": 239,
+        "cpu_seconds": 0.76
+      },
+      {
+        "source_file": "cancellation.c",
+        "line": 38,
+        "cpu_seconds": 0.7
+      },
+      {
+        "source_file": "pthread_mutex_lock.c",
+        "line": 160,
+        "cpu_seconds": 0.66
+      },
+      {
+        "source_file": "page0cur.cc",
+        "line": 231,
+        "cpu_seconds": 0.57
+      },
+      {
+        "source_file": "btr0cur.cc",
+        "line": 1269,
+        "cpu_seconds": 0.51
+      },
+      {
+        "source_file": "my_alloc.c",
+        "line": 271,
+        "cpu_seconds": 0.48
+      },
+      {
+        "source_file": "sql_select.cc",
+        "line": 13462,
+        "cpu_seconds": 0.45
+      },
+      {
+        "source_file": "srw_lock.h",
+        "line": 332,
+        "cpu_seconds": 0.43
+      }
+    ],
+    "excluded_time_seconds": {
+      "collector": 36.43,
+      "syscall": 24.84
+    },
+    "all_hotspots": [
+      {
+        "function": "func@0x823e30",
+        "cpu_seconds": 34.833,
+        "module": "libtpsstool.so",
+        "source_file": "[Unknown]",
+        "unresolved": true,
+        "class": "collector",
+        "cpu_pct": 24.5
+      },
+      {
+        "function": "__syscall_cancel_arch",
+        "cpu_seconds": 14.91,
+        "module": "libc.so.6",
+        "source_file": "syscall_cancel.S",
+        "unresolved": false,
+        "class": "syscall",
+        "cpu_pct": 10.49
+      },
+      {
+        "function": "cmp_dtuple_rec_bytes",
+        "cpu_seconds": 6.44,
+        "module": "mariadbd",
+        "source_file": "page0cur.cc",
+        "unresolved": false,
+        "class": "server",
+        "cpu_pct": 4.53
+      },
+      {
+        "function": "OS_BARESYSCALL_DoCallAsmIntel64Linux",
+        "cpu_seconds": 3.26,
+        "module": "libc-dynamic.so",
+        "source_file": "[Unknown]",
+        "unresolved": false,
+        "class": "syscall",
+        "cpu_pct": 2.29
+      },
+      {
+        "function": "__memmove_avx_unaligned_erms",
+        "cpu_seconds": 2.58,
+        "module": "libc.so.6",
+        "source_file": "memmove-vec-unaligned-erms.S",
+        "unresolved": false,
+        "class": "syscall",
+        "cpu_pct": 1.81
+      },
+      {
+        "function": "alloc_root",
+        "cpu_seconds": 1.8,
+        "module": "mariadbd",
+        "source_file": "my_alloc.c",
+        "unresolved": false,
+        "class": "server",
+        "cpu_pct": 1.27
+      },
+      {
+        "function": "l_find",
+        "cpu_seconds": 1.56,
+        "module": "mariadbd",
+        "source_file": "lf_hash.cc",
+        "unresolved": false,
+        "class": "server",
+        "cpu_pct": 1.1
+      },
+      {
+        "function": "func@0x9b0",
+        "cpu_seconds": 1.45,
+        "module": "[vdso]",
+        "source_file": "[Unknown]",
+        "unresolved": true,
+        "class": "other",
+        "cpu_pct": 1.02
+      },
+      {
+        "function": "make_join_statistics",
+        "cpu_seconds": 1.35,
+        "module": "mariadbd",
+        "source_file": "sql_select.cc",
+        "unresolved": false,
+        "class": "server",
+        "cpu_pct": 0.95
+      },
+      {
+        "function": "__memcmp_avx2_movbe",
+        "cpu_seconds": 1.16,
+        "module": "libc.so.6",
+        "source_file": "memcmp-avx2-movbe.S",
+        "unresolved": false,
+        "class": "syscall",
+        "cpu_pct": 0.82
+      },
+      {
+        "function": "___pthread_mutex_lock",
+        "cpu_seconds": 1.11,
+        "module": "libc.so.6",
+        "source_file": "pthread_mutex_lock.c",
+        "unresolved": false,
+        "class": "syscall",
+        "cpu_pct": 0.78
+      },
+      {
+        "function": "my_betoh64",
+        "cpu_seconds": 1.1,
+        "module": "mariadbd",
+        "source_file": "my_byteorder.h",
+        "unresolved": false,
+        "class": "server",
+        "cpu_pct": 0.77
+      },
+      {
+        "function": "row_search_mvcc<InnoDBPolicy<(bool)1, (bool)1>>",
+        "cpu_seconds": 1.03,
+        "module": "mariadbd",
+        "source_file": "row0sel.cc",
+        "unresolved": false,
+        "class": "server",
+        "cpu_pct": 0.72
+      },
+      {
+        "function": "JOIN::prepare",
+        "cpu_seconds": 0.9,
+        "module": "mariadbd",
+        "source_file": "sql_select.cc",
+        "unresolved": false,
+        "class": "server",
+        "cpu_pct": 0.63
+      },
+      {
+        "function": "dispatch_command",
+        "cpu_seconds": 0.86,
+        "module": "mariadbd",
+        "source_file": "sql_parse.cc",
+        "unresolved": false,
+        "class": "server",
+        "cpu_pct": 0.6
+      }
+    ]
+  },
+  {
+    "workload_id": 1,
+    "workload": "oltp_read_only",
+    "tma": {
+      "retiring_pct": 32.07,
+      "back_end_pct": 26.37,
+      "front_end_pct": 34.97,
+      "bad_spec_pct": 6.59,
+      "cpi": 0.42,
+      "ghz_per_core": 22.68
+    },
+    "dominant_bottleneck": "front_end",
+    "suggested_angle": "instruction-supply bound: shrink instruction footprint on the hot path - reduce inlining of cold branches, hoist cold/error paths out of line, merge duplicated call sites, avoid megamorphic dispatch",
+    "actionable_hotspots": [
+      {
+        "function": "MY_HASH_ADD",
+        "cpu_seconds": 6.347,
+        "module": "mariadbd",
+        "source_file": "strings_def.h",
+        "unresolved": false,
+        "class": "server",
+        "cpu_pct": 6.02
+      },
+      {
+        "function": "cmp_dtuple_rec_bytes",
+        "cpu_seconds": 2.818,
+        "module": "mariadbd",
+        "source_file": "page0cur.cc",
+        "unresolved": false,
+        "class": "server",
+        "cpu_pct": 2.67
+      },
+      {
+        "function": "my_uca_scanner_next_expansion_weight",
+        "cpu_seconds": 2.586,
+        "module": "mariadbd",
+        "source_file": "ctype-uca.c",
+        "unresolved": false,
+        "class": "server",
+        "cpu_pct": 2.45
+      },
+      {
+        "function": "skip_trailing_space",
+        "cpu_seconds": 2.513,
+        "module": "mariadbd",
+        "source_file": "strings_def.h",
+        "unresolved": false,
+        "class": "server",
+        "cpu_pct": 2.38
+      },
+      {
+        "function": "my_charlen_utf8mb4",
+        "cpu_seconds": 2.035,
+        "module": "mariadbd",
+        "source_file": "ctype-utf8.c",
+        "unresolved": false,
+        "class": "server",
+        "cpu_pct": 1.93
+      },
+      {
+        "function": "my_uca_level_booster_simple_prefix_cmp",
+        "cpu_seconds": 1.776,
+        "module": "mariadbd",
+        "source_file": "ctype-uca.c",
+        "unresolved": false,
+        "class": "server",
+        "cpu_pct": 1.68
+      },
+      {
+        "function": "row_search_mvcc<InnoDBPolicy<(bool)1, (bool)1>>",
+        "cpu_seconds": 1.689,
+        "module": "mariadbd",
+        "source_file": "row0sel.cc",
+        "unresolved": false,
+        "class": "server",
+        "cpu_pct": 1.6
+      },
+      {
+        "function": "my_ismbchar",
+        "cpu_seconds": 1.451,
+        "module": "mariadbd",
+        "source_file": "m_ctype.h",
+        "unresolved": false,
+        "class": "server",
+        "cpu_pct": 1.38
+      },
+      {
+        "function": "cmp_data",
+        "cpu_seconds": 1.414,
+        "module": "mariadbd",
+        "source_file": "rem0cmp.cc",
+        "unresolved": false,
+        "class": "server",
+        "cpu_pct": 1.34
+      },
+      {
+        "function": "my_qsort2",
+        "cpu_seconds": 1.122,
+        "module": "mariadbd",
+        "source_file": "mf_qsort.c",
+        "unresolved": false,
+        "class": "server",
+        "cpu_pct": 1.06
+      }
+    ],
+    "hot_source_lines": [
+      {
+        "source_file": "strings_def.h",
+        "line": 209,
+        "cpu_seconds": 6.638
+      },
+      {
+        "source_file": "ctype-uca.c",
+        "line": 31285,
+        "cpu_seconds": 2.506
+      },
+      {
+        "source_file": "ctype-utf8.c",
+        "line": 3008,
+        "cpu_seconds": 1.492
+      },
+      {
+        "source_file": "strings_def.h",
+        "line": 100,
+        "cpu_seconds": 1.131
+      },
+      {
+        "source_file": "strings_def.h",
+        "line": 99,
+        "cpu_seconds": 1.031
+      },
+      {
+        "source_file": "page0cur.cc",
+        "line": 103,
+        "cpu_seconds": 1.028
+      },
+      {
+        "source_file": "srw_lock.h",
+        "line": 332,
+        "cpu_seconds": 1.011
+      },
+      {
+        "source_file": "m_ctype.h",
+        "line": 1980,
+        "cpu_seconds": 0.951
+      },
+      {
+        "source_file": "ctype-uca.c",
+        "line": 34319,
+        "cpu_seconds": 0.892
+      },
+      {
+        "source_file": "page0cur.cc",
+        "line": 580,
+        "cpu_seconds": 0.778
+      },
+      {
+        "source_file": "page0cur.cc",
+        "line": 85,
+        "cpu_seconds": 0.734
+      },
+      {
+        "source_file": "atomic_base.h",
+        "line": 641,
+        "cpu_seconds": 0.53
+      }
+    ],
+    "excluded_time_seconds": {
+      "collector": 10.73,
+      "syscall": 13.23
+    },
+    "all_hotspots": [
+      {
+        "function": "func@0x823e30",
+        "cpu_seconds": 10.73,
+        "module": "libtpsstool.so",
+        "source_file": "[Unknown]",
+        "unresolved": true,
+        "class": "collector",
+        "cpu_pct": 10.17
+      },
+      {
+        "function": "__syscall_cancel_arch",
+        "cpu_seconds": 6.89,
+        "module": "libc.so.6",
+        "source_file": "syscall_cancel.S",
+        "unresolved": false,
+        "class": "syscall",
+        "cpu_pct": 6.53
+      },
+      {
+        "function": "MY_HASH_ADD",
+        "cpu_seconds": 6.347,
+        "module": "mariadbd",
+        "source_file": "strings_def.h",
+        "unresolved": false,
+        "class": "server",
+        "cpu_pct": 6.02
+      },
+      {
+        "function": "__memmove_avx_unaligned_erms",
+        "cpu_seconds": 3.953,
+        "module": "libc.so.6",
+        "source_file": "memmove-vec-unaligned-erms.S",
+        "unresolved": false,
+        "class": "syscall",
+        "cpu_pct": 3.75
+      },
+      {
+        "function": "cmp_dtuple_rec_bytes",
+        "cpu_seconds": 2.818,
+        "module": "mariadbd",
+        "source_file": "page0cur.cc",
+        "unresolved": false,
+        "class": "server",
+        "cpu_pct": 2.67
+      },
+      {
+        "function": "my_uca_scanner_next_expansion_weight",
+        "cpu_seconds": 2.586,
+        "module": "mariadbd",
+        "source_file": "ctype-uca.c",
+        "unresolved": false,
+        "class": "server",
+        "cpu_pct": 2.45
+      },
+      {
+        "function": "skip_trailing_space",
+        "cpu_seconds": 2.513,
+        "module": "mariadbd",
+        "source_file": "strings_def.h",
+        "unresolved": false,
+        "class": "server",
+        "cpu_pct": 2.38
+      },
+      {
+        "function": "my_charlen_utf8mb4",
+        "cpu_seconds": 2.035,
+        "module": "mariadbd",
+        "source_file": "ctype-utf8.c",
+        "unresolved": false,
+        "class": "server",
+        "cpu_pct": 1.93
+      },
+      {
+        "function": "my_uca_level_booster_simple_prefix_cmp",
+        "cpu_seconds": 1.776,
+        "module": "mariadbd",
+        "source_file": "ctype-uca.c",
+        "unresolved": false,
+        "class": "server",
+        "cpu_pct": 1.68
+      },
+      {
+        "function": "row_search_mvcc<InnoDBPolicy<(bool)1, (bool)1>>",
+        "cpu_seconds": 1.689,
+        "module": "mariadbd",
+        "source_file": "row0sel.cc",
+        "unresolved": false,
+        "class": "server",
+        "cpu_pct": 1.6
+      },
+      {
+        "function": "my_ismbchar",
+        "cpu_seconds": 1.451,
+        "module": "mariadbd",
+        "source_file": "m_ctype.h",
+        "unresolved": false,
+        "class": "server",
+        "cpu_pct": 1.38
+      },
+      {
+        "function": "cmp_data",
+        "cpu_seconds": 1.414,
+        "module": "mariadbd",
+        "source_file": "rem0cmp.cc",
+        "unresolved": false,
+        "class": "server",
+        "cpu_pct": 1.34
+      },
+      {
+        "function": "__memcmp_avx2_movbe",
+        "cpu_seconds": 1.271,
+        "module": "libc.so.6",
+        "source_file": "memcmp-avx2-movbe.S",
+        "unresolved": false,
+        "class": "syscall",
+        "cpu_pct": 1.2
+      },
+      {
+        "function": "my_qsort2",
+        "cpu_seconds": 1.122,
+        "module": "mariadbd",
+        "source_file": "mf_qsort.c",
+        "unresolved": false,
+        "class": "server",
+        "cpu_pct": 1.06
+      },
+      {
+        "function": "OS_BARESYSCALL_DoCallAsmIntel64Linux",
+        "cpu_seconds": 1.118,
+        "module": "libc-dynamic.so",
+        "source_file": "[Unknown]",
+        "unresolved": false,
+        "class": "syscall",
+        "cpu_pct": 1.06
+      }
+    ]
+  }
+]

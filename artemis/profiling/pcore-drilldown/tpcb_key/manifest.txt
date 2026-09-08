@@ -1,0 +1,8 @@
+timestamp_utc: 20260908T194630Z
+workload:      tpcb_key
+variant:       baseline
+git_sha:       b2a8c2234dbc276fe3947633c9ffea454badf48f
+server_cpus:   0-3 (P-cores, cpu_core PMU)
+client_cpus:   8-11 (E-cores)
+collect_secs:  60
+NOTE: different microarchitecture from the benchmark - directional only

@@ -1,0 +1,6 @@
+timestamp_utc: 20260908T203539Z
+variant: baseline
+git_sha: b2a8c2234dbc276fe3947633c9ffea454badf48f
+server_cpus: 4-7 (E-cores)
+threads: 4
+collect_secs: 60

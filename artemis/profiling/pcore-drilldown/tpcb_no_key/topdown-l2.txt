@@ -1,0 +1,18 @@
+WARNING: events were regrouped to match PMUs
+
+ Performance counter stats for 'CPU(s) 0-3':
+
+ 6,827,643,352,176      cpu_core/slots/                                                       
+ 1,419,078,814,372      cpu_core/topdown-retiring/                                            
+ 2,476,745,442,110      cpu_core/topdown-be-bound/                                            
+ 2,644,009,348,973      cpu_core/topdown-fe-bound/                                            
+   267,750,719,692      cpu_core/topdown-bad-spec/                                            
+ 1,318,701,302,481      cpu_core/topdown-mem-bound/                                           
+ 1,311,978,526,494      cpu_core/topdown-fetch-lat/                                           
+   187,425,503,783      cpu_core/topdown-br-mispredict/                                       
+   187,425,503,783      cpu_core/topdown-heavy-ops/                                           
+   853,549,925,446      cpu_core/cycles/                                                      
+ 1,369,303,337,111      cpu_core/instructions/                                                
+
+      60.059604510 seconds time elapsed
+
