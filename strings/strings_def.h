@@ -226,6 +226,46 @@ static inline void MY_HASH_ADD_STR(my_hasher_st *hasher, const uchar* key,
 #define MY_HASH_ADD_16(A, value)                                        \
   do { MY_HASH_ADD(A, ((uchar)(value & 0xFF))) ; MY_HASH_ADD(A, ((uchar)(value >>8))); } while(0)
 
+/*
+  Add one full 16-bit collation weight to the MariaDB hash: the high
+  byte first, then the low byte, exactly like two consecutive
+  MY_HASH_ADD() calls (MY_HASH_ADD_16() cannot be used for this).
+
+  Since A << 8 has zeros in bits 0-5, (A & 63) after a step equals
+  (A & 63) ^ (m & 63), where m is the step's product. Carrying those
+  six bits separately in *low6 lets the next step's multiply start
+  before the wide *a update completes, splitting the loop-carried
+  dependency chain. This is pure algebra on the same expression: the
+  result is bit-exact with two sequential MY_HASH_ADD_MARIADB() steps.
+*/
+static inline void
+my_hash_add_mariadb_w16(ulong *a, ulong *b, ulong *low6, uint weight)
+{
+#if !defined(DBUG_OFF)
+  ulong a0= *a, b0= *b;
+#endif
+  ulong m;
+
+  DBUG_ASSERT(*low6 == (*a & 63));
+
+  m= ((*low6) + *b) * (weight >> 8);
+  *a ^= m + (*a << 8);
+  *low6 ^= m & 63;
+  *b += 3;
+
+  m= ((*low6) + *b) * (weight & 0xFF);
+  *a ^= m + (*a << 8);
+  *low6 ^= m & 63;
+  *b += 3;
+
+#if !defined(DBUG_OFF)
+  /* Cross-check against the original byte-wise recurrence. */
+  MY_HASH_ADD_MARIADB(a0, b0, weight >> 8);
+  MY_HASH_ADD_MARIADB(a0, b0, weight & 0xFF);
+  DBUG_ASSERT(*a == a0 && *b == b0 && *low6 == (a0 & 63));
+#endif
+}
+
 #define my_wc_t ulong
 
 int my_wc_to_printable_ex(CHARSET_INFO *cs, my_wc_t wc,

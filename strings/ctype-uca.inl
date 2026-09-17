@@ -658,6 +658,57 @@ MY_FUNCTION_NAME(hash_sort)(my_hasher_st *hasher, CHARSET_INFO *cs,
   my_uca_scanner_param_init(&param, cs, &cs->uca->level[0]);
   my_uca_scanner_init_any(&scanner, s, slen);
 
+  if (!hasher->m_hash_byte)
+  {
+    /*
+      Default MariaDB hash: keep the accumulators in registers for the
+      whole string and add a weight in one fused step.
+      See comment below why we can't use MY_HASH_ADD_16().
+    */
+    ulong nr1= hasher->m_nr1;
+    ulong nr2= hasher->m_nr2;
+    ulong low6= nr1 & 63;
+
+    while ((s_res= MY_FUNCTION_NAME(scanner_next)(&scanner, &param)) > 0)
+    {
+      if (s_res == space_weight)
+      {
+        /* Combine all spaces to be able to skip end spaces */
+        uint count= 0;
+        do
+        {
+          count++;
+          if ((s_res= MY_FUNCTION_NAME(scanner_next)(&scanner, &param)) <= 0)
+          {
+            /* Skip strings at end of string */
+            hasher->m_nr1= nr1;
+            hasher->m_nr2= nr2;
+            return;
+          }
+        }
+        while (s_res == space_weight);
+
+        /* Add back that has for the space characters */
+        do
+        {
+          /*
+            We can't use MY_HASH_ADD_16() here as we, because of a misstake
+            in the original code, where we added the 16 byte variable the
+            opposite way.  Changing this would cause old partitioned tables
+            to fail.
+          */
+          my_hash_add_mariadb_w16(&nr1, &nr2, &low6, (uint) space_weight);
+        }
+        while (--count != 0);
+
+      }
+      my_hash_add_mariadb_w16(&nr1, &nr2, &low6, (uint) s_res);
+    }
+    hasher->m_nr1= nr1;
+    hasher->m_nr2= nr2;
+    return;
+  }
+
   while ((s_res= MY_FUNCTION_NAME(scanner_next)(&scanner, &param)) >0)
   {
     if (s_res == space_weight)
