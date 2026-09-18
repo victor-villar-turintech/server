@@ -15,3 +15,11 @@ gates/hashcheck/             reference copy of the bit-exactness gate (runs from
 
 This folder contains **no server source changes**. It is documentation and
 data only; candidates must not modify it.
+
+## Full pilot record (private)
+
+The complete engagement — build/benchmark harness, VTune profiling, the
+multi-model Discovery sweep, the A/B validation, and the executive report — lives
+in a private companion repository (access-controlled; not publicly viewable):
+
+➜ https://github.com/victor-villar-turintech/mariadb-perf-pilot
