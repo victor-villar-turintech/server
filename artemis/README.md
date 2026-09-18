@@ -23,3 +23,16 @@ multi-model Discovery sweep, the A/B validation, and the executive report — li
 in a private companion repository (access-controlled; not publicly viewable):
 
 ➜ https://github.com/victor-villar-turintech/mariadb-perf-pilot
+
+### Executive report
+
+The full evidence report (preparation, benchmarks and metrics explained for
+non-MariaDB readers, VTune profiling, the objective given to the AI, the Discovery
+sweep, and all 25 paired A/B validations with confidence intervals) is:
+
+➜ https://github.com/victor-villar-turintech/mariadb-perf-pilot/blob/main/results/ab-campaign/AB-Executive-Report.pdf
+
+Headline: 98 candidates from 9 models, 25 taken through paired ABBA A/B —
+zero validated speed-ups on the collation hash path; best confirmed effect
++0.13 % (inside the 1 % noise floor). Regeneration scripts for every figure and
+table are alongside the PDF in `harness/`.
