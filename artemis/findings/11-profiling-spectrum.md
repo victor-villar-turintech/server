@@ -77,4 +77,4 @@ original perf profile, Phase 1 level-1 TMA on the benchmark cores, and the
 P-core level-2 drill-down - agree on the target and the mechanism.
 
 Remains **evidence, not a committed shortlist**: the brief requires the
-shortlist to reflect the client's steer and to be reviewed internally before Discovery runs.
+shortlist to reflect the optimisation steer and to be reviewed before Discovery runs.

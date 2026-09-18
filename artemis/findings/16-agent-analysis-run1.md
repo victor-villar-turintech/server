@@ -1,4 +1,4 @@
-# Agent analysis of the collation hash path (Discovery run 1, Opus 5)
+# Agent analysis of the collation hash path (Discovery run 1)
 
 Captured verbatim from the agent's own working notes on run
 `e5fc3e58-9fdb-4ac4-8768-8fa30357be0f` (baseline `b2a8c223`, 2026-09-08).

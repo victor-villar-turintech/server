@@ -64,11 +64,11 @@ are:
 
 None of these is "a small, high-impact change a MariaDB engineer can review in
 minutes". A patch that meaningfully moves this workload would be exactly the
-kind of large diff the client's criterion excludes.
+kind of large diff the review-effort criterion excludes.
 
 **This creates a real tension worth naming.** TPC-B is the workload MariaDB
 Foundation says historically caught ~70% of regressions, so it is what they care
-most about - and it is the worst fit for the "minimum expert review time"
+most about - and it is the worst fit for the "low review effort"
 constraint. Worth putting to MariaDB engineering directly rather than quietly optimising
 something easier and hoping it lands.
 
@@ -83,4 +83,4 @@ instruments agreeing and a tractable patch surface. Treat tpcb as a
 *measurement* target - the thing we must not regress - rather than an
 optimisation target for a first patch.
 
-Still evidence, not a committed shortlist: the brief requires the client's steer, and review internally before Discovery.
+Still evidence, not a committed shortlist: the brief requires the optimisation steer, and review internally before Discovery.

@@ -80,7 +80,7 @@ The partitioning tests are load-bearing in the correctness gate.
 
 Secondary, smaller: ITLB misses at 5.1% of clockticks suggest huge pages might
 help, but that is a deployment setting rather than a reviewable code patch, so
-it fits the client's criterion poorly.
+it fits the review-effort criterion poorly.
 
 ## Caveats
 
@@ -91,4 +91,4 @@ it fits the client's criterion poorly.
   would be somewhat higher at benchmark conditions - though from 7.4% with L2/L3
   near zero, it would have to move a very long way to change the conclusion.
 - Still evidence, not a committed shortlist: the brief requires the shortlist to
-  reflect the client's steer and to be reviewed internally.
+  reflect the optimisation steer and to be reviewed.

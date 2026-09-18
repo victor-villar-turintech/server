@@ -90,7 +90,7 @@ instruction footprint rather than concentrated in one loop, which is precisely
 why no single function stands out.
 
 That makes these workloads **harder targets for a small patch** than workload 9,
-and worth saying plainly given the client's "minimum expert review time" criterion.
+and worth saying plainly given the "low review effort" criterion.
 
 ## Caveats
 
@@ -112,5 +112,5 @@ hotspot in the set (18%), a clear mechanism, a bounded patch surface, and a
 workload TAF measures in isolation (`SELECT_DISTINCT_RANGES`).
 
 This remains **evidence, not a committed shortlist** - the brief requires the
-shortlist to reflect the client's steer (still pending), and to be reviewed
+shortlist to reflect the optimisation steer (to be chosen), and to be reviewed
 internally before Discovery runs.

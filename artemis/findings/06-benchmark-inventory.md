@@ -117,7 +117,7 @@ the protocol shape they have long used.
 ## Implications for our work
 
 1. **Open question #1 is largely answered.** TAF is MariaDB's own framework
-   and satisfies the client's "validated by MariaDB's own tests and benchmarks"
+   and satisfies the "validated by MariaDB's own tests and benchmarks"
    requirement directly. The conversation with MariaDB engineering becomes *confirm TAF and pick the
    workload*, not *ask what they use*.
 

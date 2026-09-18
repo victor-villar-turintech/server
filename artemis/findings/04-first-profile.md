@@ -1,7 +1,7 @@
 # First profile — evidence for the target shortlist
 
 **Status: EVIDENCE, NOT A SHORTLIST.** The brief requires the 3-5 target
-shortlist to reflect the client's steer (still pending) and to be reviewed
+shortlist to reflect the optimisation steer (to be chosen) and to be reviewed
 internally before Discovery runs. Nothing here is committed to.
 
 Source: `results/profile-baseline-20260903T102652Z`
@@ -45,7 +45,7 @@ by a wide margin. The top symbol alone is 2.4x the next MariaDB symbol.
 
 ## Provisional hypotheses (NOT a committed shortlist)
 
-Recorded so the shortlist can be assembled quickly once the steer arrives.
+Recorded so the shortlist can be assembled quickly once the target is chosen.
 
 **H1 — `MY_HASH_ADD` is byte-at-a-time in the UCA hash loop.** 1.72 of the
 1.96% with resolved stacks sits inside `MY_HASH_ADD`. Each 16-bit weight costs
@@ -74,8 +74,7 @@ string within one row.
 
 **H5 — InnoDB read path.** `row_search_mvcc` + `buf_page_get_gen` +
 `cmp_dtuple_rec_bytes` = 6.37%. Larger, more central, harder for a reviewer to
-accept quickly. Listed for completeness; a poor fit for "minimum expert review
-time" unless the client's steer points here.
+accept quickly. Listed for completeness; a poor fit for "low review effort" unless the optimisation steer points here.
 
 ## Two caveats that must travel with this profile
 

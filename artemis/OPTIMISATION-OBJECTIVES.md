@@ -11,7 +11,7 @@ prove the improvement is real. Nothing here modifies server source.
 
 | Item | Value |
 |---|---|
-| Repository | `victor-villar-turintech/server` (fork of `MariaDB/server`) |
+| Repository | `<fork>/server` (fork of `MariaDB/server`) |
 | Baseline branch | `perf/baseline` |
 | **Seed commit** | `b2a8c2234dbc276fe3947633c9ffea454badf48f` |
 | Server version | MariaDB **13.1.0** (`SERVER_MATURITY=alpha`, upstream `main` at freeze) |

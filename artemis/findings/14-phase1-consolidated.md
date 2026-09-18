@@ -230,7 +230,7 @@ It is a hard reject: no benchmark number is computed for a candidate that alters
 hash output.
 
 This remains **evidence, not a committed shortlist**: the brief requires the
-shortlist to reflect the client's steer and review internally
+shortlist to reflect the optimisation steer and review internally
 before Discovery runs.
 
 ## File index
