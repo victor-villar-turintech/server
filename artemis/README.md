@@ -26,9 +26,10 @@ in a private companion repository (access-controlled; not publicly viewable):
 
 ### Executive report
 
-The full evidence report (preparation, benchmarks and metrics explained for
-non-MariaDB readers, VTune profiling, the objective given to the AI, the Discovery
-sweep, and all 25 paired A/B validations with confidence intervals) is:
+The full evidence report — 31 pages, 20 figures, linked contents page; preparation,
+benchmarks and metrics explained for non-MariaDB readers, VTune profiling, the
+objective given to the AI, the Discovery sweep, every unmeasured version accounted
+for by cause, and all 25 paired A/B validations with confidence intervals — is:
 
 ➜ https://github.com/victor-villar-turintech/mariadb-perf-pilot/blob/main/results/ab-campaign/AB-Executive-Report.pdf
 
