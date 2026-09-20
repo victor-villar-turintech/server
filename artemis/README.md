@@ -33,6 +33,10 @@ for by cause, and all 25 paired A/B validations with confidence intervals — is
 
 ➜ https://github.com/victor-villar-turintech/mariadb-perf-pilot/blob/main/results/ab-campaign/AB-Executive-Report.pdf
 
+A 21-slide walkthrough of the same material for a non-technical audience:
+
+➜ https://github.com/victor-villar-turintech/mariadb-perf-pilot/blob/main/results/ab-campaign/AB-Executive-Deck.pdf
+
 Headline: 98 candidates from 9 models, 25 taken through paired ABBA A/B —
 zero validated speed-ups on the collation hash path; best confirmed effect
 +0.13 % (inside the 1 % noise floor). Regeneration scripts for every figure and
