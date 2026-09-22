@@ -1,6 +1,8 @@
 # Optimisation objectives — MariaDB server, collation hash path
 
-**Status:** frozen for Discovery · **Prepared:** 2026-09-08
+**Status:** frozen for Discovery · **Prepared:** 2026-09-08 · **Updated:** 2026-09-22
+(primary target moved from workload 9 to the new collation-heavy workload 12;
+see `findings/17-collation-heavy-workload.md`)
 **Scope of this folder:** everything an optimising agent needs to attack one
 well-characterised hotspot in MariaDB server, prove the change correct, and
 prove the improvement is real. Nothing here modifies server source.
@@ -38,34 +40,56 @@ Default server collation **`utf8mb4_uca1400_ai_ci`**; sysbench's `CHAR(120)`
 and `CHAR(60)` columns inherit it, which is why the collation hash is on the
 hot path.
 
+Since 2026-09-22 the dataset also holds `sbtext`: 500,000 rows of
+deterministic multilingual text (accented Latin, Cyrillic, Greek, CJK, plain
+ASCII) with `name VARCHAR(128)` (60-128 chars, ~35% repeats), `body
+VARCHAR(1024)` (200-600 chars) and `tag VARCHAR(64)` (60 distinct labels),
+same collation. It is the table behind workload 12.
+
 ---
 
 ## 2. Objective
 
-**Primary metric:** `tps` of **workload_id 9** (`oltp_distinct_ranges`,
-TAF `SELECT_DISTINCT_RANGES`) in `artemis_results.json`. **Higher is better.**
+**Primary metric (from 2026-09-22):** `target_tps` = `tps_collation_heavy`,
+the `tps` of **workload_id 12** (`collation_heavy`) in `artemis_results.json`.
+**Higher is better.** Workload 12 is a read-only mix over `sbtext`, each query
+on a random window of 100 consecutive ids: 3x `SELECT DISTINCT name`, 2x
+`GROUP BY name`, 1x `GROUP BY tag`, 1x `ORDER BY body LIMIT 20`, 1x self-join
+on `name` equality. DISTINCT and GROUP BY build MEMORY temp tables whose hash
+index calls the UCA `hash_sort` on every row; ORDER BY builds sort keys
+(`strnxfrm`); the join compares (`strnncollsp`). About **43% of server CPU is
+inside the four target files** on this workload (scanner 19%, hash_sort 12%,
+compare 7%, sort keys 2%), against ~18% for the hash step on workload 9.
+
+The original primary metric, workload 9 (`oltp_distinct_ranges`, TAF
+`SELECT_DISTINCT_RANGES`), is retained as a guard so results stay comparable
+with the 2026-09 pilot, whose 20 A/B-tested candidates all measured within
++0.13% on it.
 
 **What counts as a win:** the improvement must survive an interleaved, repeated
 A/B against the baseline with its **entire 95% confidence interval above the
 noise floor**. Measured cross-build noise on this host is ~3% at 10 pairs, so
-effects below ~3% on workload 9 are not provable here; do not report them as
-wins.
+effects below ~3% are not provable here; do not report them as wins. Inside a
+Discovery run every version's benchmark is repeated 10 times and the baseline
+is re-measured after the run, which bounds drift but not build-layout noise.
 
 **Guards - must not regress** (within noise, `errors = 0`):
 
 | workload_id | workload | why it is a guard |
 |---|---|---|
+| 9 | `oltp_distinct_ranges` | the pilot's target; ASCII-only DISTINCT, ties the new result to the old |
 | 1 | `oltp_read_only` | headline blend; a real collation win shows here *diluted* |
 | 5 | `oltp_point_select` | pure framework path; shares no mechanism with the target |
 | 10 | `tpcb_key` | MariaDB's most regression-sensitive workload class |
 
-A candidate that improves workload 9 and regresses any guard beyond noise is a
+A candidate that improves workload 12 and regresses any guard beyond noise is a
 **reject**, not a trade-off.
 
 **Falsifiable prediction:** a genuine collation-path improvement moves workload
-9 strongly and workload 1 detectably (the DISTINCT query is 1 of 14 per
-`oltp_read_only` transaction). If 9 improves and 1 is perfectly flat, the
-mechanism is not what this document claims and the result should be doubted.
+12 strongly, workload 9 in the same direction but less (its DISTINCT hashes 120
+single-weight ASCII characters per row), and workload 1 detectably. If 12
+improves and 9 and 1 are perfectly flat, the mechanism is not what this
+document claims and the result should be doubted.
 
 ---
 
@@ -152,7 +176,13 @@ static inline void MY_HASH_ADD(my_hasher_st *hasher, uchar value)
 3. Fuse the two per-weight `MY_HASH_ADD` calls into one algebraically
    equivalent 16-bit step to shorten the critical path. Highest potential,
    highest risk; the gate decides.
-4. Reduce per-weight overhead in the scanner/feeding loop.
+4. Reduce per-weight overhead in the scanner/feeding loop. On workload 12
+   `my_uca_scanner_next_utf8mb4` is the **largest** single hotspot (19% of
+   server CPU, called once per weight from the hash, compare and sort-key
+   loops): streamline the common single-weight case (no expansion, no
+   contraction), keep scanner state in registers, and keep the contraction
+   check off the fast path when the character has no contraction flag. What
+   any input produces must not change, only how fast it is produced.
 
 Anything in this list is a hypothesis, not an instruction. The gates and the
 benchmark are the arbiters.
@@ -215,14 +245,23 @@ Cheapest rejection first. All commands live on the runner host at pinned paths.
 | Build | `/home/artemis-ai/mariadb/runner/artemis-build.sh` | ~30 s warm, ~190 s cold | compile errors |
 | **Gate 0** hash exactness | inside `artemis-test.sh` | ~1 min | any changed hash value |
 | Gate 1 correctness | `/home/artemis-ai/mariadb/runner/artemis-test.sh` | ~6 min | any mtr failure |
-| Benchmark (search) | `/home/artemis-ai/mariadb/runner/artemis-bench-discovery.sh` | ~9 min | writes `artemis_results.json` |
-| Benchmark (full) | `/home/artemis-ai/mariadb/runner/artemis-bench-suite.sh` | ~35 min | all 11 workloads, for final reporting |
+| Benchmark (search) | `/home/artemis-ai/mariadb/runner/artemis-bench-discovery-C.sh` | ~9 min | target 12 at 4 reps, guards 9/10/5/1 at 2 reps; writes flat `artemis_results.json` |
+| Benchmark (full) | `/home/artemis-ai/mariadb/runner/artemis-bench-suite.sh` | ~37 min | all 12 workloads, for final reporting |
 
-**Per candidate in Discovery: ~15 min.** A 10-version run is ~2.5 h.
+**Per candidate in Discovery: ~15 min per benchmark execution.** With the
+10-repeat protocol used from 2026-09-22 a version costs ~1 h 45 min and a
+10-version run ~21 h.
 
 ### `artemis_results.json` contract
 
-JSON array, one object per workload, every value a finite number:
+Discovery runs use the **flat** form (one object, per-workload metric names):
+`target_tps`, and for each workload `<field>_<short>` with short names
+`read_only`, `point_select`, `distinct_ranges`, `tpcb_key`, `collation_heavy`,
+e.g. `tps_collation_heavy`, `latency_p95_ms_collation_heavy`,
+`errors_collation_heavy`. `target_tps` duplicates `tps_collation_heavy`.
+
+The full suite writes the array form, one object per workload, every value a
+finite number:
 
 ```json
 { "workload_id": 9, "tps": 14679.66, "qps": 44038.99,
@@ -236,16 +275,21 @@ unreliable for that run. `errors` counts failed reps; must be 0.
 Workload ids: 1 `oltp_read_only` · 2 `oltp_read_write` · 3 `oltp_update_index`
 · 4 `oltp_update_non_index` · 5 `oltp_point_select` · 6 `oltp_simple_ranges` ·
 7 `oltp_sum_ranges` · 8 `oltp_order_ranges` · **9 `oltp_distinct_ranges`** ·
-10 `tpcb_key` · 11 `tpcb_no_key`. Workloads and the sysbench 1.1.0 client are
-MariaDB Foundation's own TAF definitions (`github.com/MariaDB/TAF` @
+10 `tpcb_key` · 11 `tpcb_no_key` · **12 `collation_heavy`** (added
+2026-09-22, not a TAF workload). Workloads 1-11 and the sysbench 1.1.0 client
+are MariaDB Foundation's own TAF definitions (`github.com/MariaDB/TAF` @
 `ee742552`); legacy suites are excluded.
 
 ### Baseline reference values (seed commit, 4-rep protocol)
 
 | id | tps | id | tps |
 |---|---|---|---|
-| 1 | 5,137.8 | 9 | **14,679.7** |
+| 1 | 5,137.8 | 9 | 14,679.7 |
 | 5 | 226,643 | 10 | 13,594.4 |
+| 12 | **1,775.3** (2026-09-22, fresh host) | | |
+
+Values for 1/5/9/10 are from the 2026-09-08 freeze on a thermally degraded
+host; a fresh host measured 7,529 / 248,947 / 23,233 / 19,348 on 2026-09-22.
 
 Absolute numbers from this host are **not** quotable externally (thermally
 constrained mobile CPU); only relative A/B comparisons are meaningful.
@@ -288,6 +332,7 @@ constrained mobile CPU); only relative A/B comparisons are meaningful.
 | Instrument validity on this CPU | `findings/07-profiling-capability.md` |
 | Per-workload drill-downs | `findings/09-*`, `10-*`, `11-*` |
 | Hash gate rationale & validation | `findings/15-hashcheck-gate.md` |
+| Collation-heavy workload (12): design, profile, noise floor | `findings/17-collation-heavy-workload.md` |
 
 The gate that actually runs is the copy on the runner host
 (`/home/artemis-ai/mariadb/harness/hashcheck/`), outside this repository, with
