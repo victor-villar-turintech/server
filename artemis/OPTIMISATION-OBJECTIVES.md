@@ -70,8 +70,10 @@ with the 2026-09 pilot, whose 20 A/B-tested candidates all measured within
 A/B against the baseline with its **entire 95% confidence interval above the
 noise floor**. Measured cross-build noise on this host is ~3% at 10 pairs, so
 effects below ~3% are not provable here; do not report them as wins. Inside a
-Discovery run every version's benchmark is repeated 10 times and the baseline
+Discovery run every version's benchmark is repeated 8 times and the baseline
 is re-measured after the run, which bounds drift but not build-layout noise.
+(8, not 10: the platform cancels a validation 60 minutes after it is created,
+so build, tests and all repeats must fit in that window.)
 
 **Guards - must not regress** (within noise, `errors = 0`):
 
@@ -245,12 +247,12 @@ Cheapest rejection first. All commands live on the runner host at pinned paths.
 | Build | `/home/artemis-ai/mariadb/runner/artemis-build.sh` | ~30 s warm, ~190 s cold | compile errors |
 | **Gate 0** hash exactness | inside `artemis-test.sh` | ~1 min | any changed hash value |
 | Gate 1 correctness | `/home/artemis-ai/mariadb/runner/artemis-test.sh` | ~6 min | any mtr failure |
-| Benchmark (search) | `/home/artemis-ai/mariadb/runner/artemis-bench-discovery-C.sh` | ~9 min | target 12 at 4 reps, guards 9/10/5/1 at 2 reps; writes flat `artemis_results.json` |
+| Benchmark (search) | `/home/artemis-ai/mariadb/runner/artemis-bench-discovery-C.sh` | ~5 min | target 12 at 4 reps, guards 9/10/5/1 at 1 rep + warm-up, soak skipped when the previous execution ended < 10 min ago; writes flat `artemis_results.json` |
 | Benchmark (full) | `/home/artemis-ai/mariadb/runner/artemis-bench-suite.sh` | ~37 min | all 12 workloads, for final reporting |
 
-**Per candidate in Discovery: ~15 min per benchmark execution.** With the
-10-repeat protocol used from 2026-09-22 a version costs ~1 h 45 min and a
-10-version run ~21 h.
+**Per candidate in Discovery: build + tests + 8 x ~5 min repeats ~ 50 min**,
+inside the platform's 60-minute validation cap. A 10-version run is ~10 h
+including the baseline and its post-run re-measurement.
 
 ### `artemis_results.json` contract
 

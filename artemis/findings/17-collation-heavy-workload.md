@@ -130,11 +130,17 @@ Guards match the full-suite validation of the same morning (23,233 / 19,348 /
 248,947 / 7,529) within the expected same-session spread. The text table was
 loaded into the runner's datadir by the prepare step in 12 s.
 
-## Effect on Discovery cost
+## Effect on Discovery cost, and the 60-minute cap
 
-The search benchmark (`artemis-bench-discovery-C.sh`) runs workload 12 at
-4 reps and guards 9, 10, 5, 1 at 2 reps: about 70 s longer per execution than
-the pilot's script, ~12 min per version at 10 repeats, ~2 h per 10-version run.
+The first Discovery run on this workload (2026-09-22 18:09) had its baseline
+cancelled by the platform exactly 60 minutes after the validation was created,
+with 6 of 10 repeats done: any validation, build and tests included, must
+finish inside 60 minutes. The search benchmark was therefore trimmed:
+`artemis-bench-discovery-C.sh` runs workload 12 at 4 reps (130 s) and guards
+9, 10, 5, 1 at 1 rep plus a warm-up (40 s each), and skips the 120 s soak when
+the previous execution ended less than 10 minutes earlier, which is always the
+case for back-to-back repeats. One execution is ~5 min; with 8 repeats a
+version costs ~50 min, a 10-version run ~10 h.
 
 ## Files on the runner host (not in this repository)
 
