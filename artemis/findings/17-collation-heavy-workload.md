@@ -139,8 +139,9 @@ finish inside 60 minutes. The search benchmark was therefore trimmed:
 `artemis-bench-discovery-C.sh` runs workload 12 at 4 reps (130 s) and guards
 9, 10, 5, 1 at 1 rep plus a warm-up (40 s each), and skips the 120 s soak when
 the previous execution ended less than 10 minutes earlier, which is always the
-case for back-to-back repeats. One execution is ~5 min; with 8 repeats a
-version costs ~50 min, a 10-version run ~10 h.
+case for back-to-back repeats. Measured on the baseline build: 6.9 min with
+the soak, 4.9 min without (target 1,778 and 1,781 tps). Build + tests + 8
+repeats ~ 47 min per version; a 10-version run ~9 h.
 
 ## Files on the runner host (not in this repository)
 
