@@ -81,7 +81,7 @@ threads on CPUs 8-11, server on 4-7, as for every other workload.
 | `row_search_mvcc` | InnoDB | 2.1 |
 | `my_uca_strnxfrm_onelevel_internal_utf8mb4` | strings/ctype-uca.inl | 2.0 |
 
-Inside the four target files: **~43%** of server CPU. All collation and
+Inside the target files: **~43%** of server CPU (`scanner_next` lives in `strings/ctype-uca-scanner_next.inl`, added to the target set on 2026-09-23 from the GPT-5.6 Sol run onwards). All collation and
 charset code: 56%. Throughput 1,763 transactions/s (17,630 queries/s).
 
 Compared with workload 9, where `MY_HASH_ADD` was 18% and collation ~40%, the

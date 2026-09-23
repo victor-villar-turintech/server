@@ -58,7 +58,7 @@ on a random window of 100 consecutive ids: 3x `SELECT DISTINCT name`, 2x
 on `name` equality. DISTINCT and GROUP BY build MEMORY temp tables whose hash
 index calls the UCA `hash_sort` on every row; ORDER BY builds sort keys
 (`strnxfrm`); the join compares (`strnncollsp`). About **43% of server CPU is
-inside the four target files** on this workload (scanner 19%, hash_sort 12%,
+inside the five target files** on this workload (scanner 19%, hash_sort 12%,
 compare 7%, sort keys 2%), against ~18% for the hash step on workload 9.
 
 The original primary metric, workload 9 (`oltp_distinct_ranges`, TAF
@@ -128,6 +128,7 @@ document claims and the result should be doubted.
 | `include/m_ctype.h` | `MY_HASH_ADD_MARIADB` macro (line 551) - the hash step |
 | `strings/strings_def.h` | `MY_HASH_ADD` / `MY_HASH_ADD_STR` (lines 203-225) - per-byte wrapper with the hasher dispatch branch |
 | `strings/ctype-uca.inl` | `hash_sort` template (line 649) - the loop that feeds weights into the hash, including the trailing-space run logic |
+| `strings/ctype-uca-scanner_next.inl` | `scanner_next` itself, the per-character weight state machine (19% of CPU on workload 12), `#include`d by `ctype-uca.inl`; added 2026-09-23 so the hot loop is editable, from the GPT-5.6 Sol run onwards |
 | `strings/ctype-uca.c` | `my_uca_scanner_next_expansion_weight` (line 31283) and the scanner that produces weights |
 
 ### The hot code
