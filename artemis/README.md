@@ -41,6 +41,19 @@ and the presenter edition of the same deck (each slide beside its speaker notes)
 
 ➜ https://github.com/victor-villar-turintech/mariadb-perf-pilot/blob/main/results/ab-campaign/AB-Executive-Deck-Presenter.pdf
 
+### Phase 2 update (30 September 2026): a reproducible candidate
+
+A second search on a purpose-built collation-heavy workload (target code ≈43% of server CPU, eight
+benchmark repeats per version, baseline re-executed after every run) produced one candidate — a
+change to four files of the string library — that was rebuilt seven times from the identical diff,
+passed the bit-exact hash gate (70,868 vectors) and all 1,846 mysql-test cases on every build, and
+measured +7.5% to +15.2% in-run on that workload (pooled +10.5%). The paired A/B validation is the
+next step. The evidence report and its walkthrough deck:
+
+➜ https://github.com/victor-villar-turintech/mariadb-perf-pilot/blob/main/results/candidate-report/Candidate-Reproduction-Report.pdf
+
+➜ https://github.com/victor-villar-turintech/mariadb-perf-pilot/blob/main/results/candidate-report/Candidate-Reproduction-Deck.pdf
+
 Headline: 98 candidates from 9 models, 25 taken through paired ABBA A/B —
 zero validated speed-ups on the collation hash path; best confirmed effect
 +0.13 % (inside the 1 % noise floor). Regeneration scripts for every figure and
