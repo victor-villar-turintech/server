@@ -65,6 +65,10 @@ static int sgn(int x) { return x < 0 ? -1 : x > 0 ? 1 : 0; }
 static void test_golden_vectors(void)
 {
   int ci, total= 0;
+#if SIZEOF_LONG != 8
+  skip(7, "golden vectors were recorded with a 64-bit ulong hash accumulator");
+  return;
+#endif
   for (ci= 0; uca_v9_vector_collations[ci]; ci++)
   {
     CHARSET_INFO *cs= get_charset_by_name(uca_v9_vector_collations[ci], MYF(0));
@@ -95,7 +99,7 @@ static void test_golden_vectors(void)
 /* 2. The two-byte hash step                                                                                     */
 static void test_hash_macro(void)
 {
-#ifdef MY_HASH_ADD_MARIADB_2BYTES
+#if defined(MY_HASH_ADD_MARIADB_2BYTES) && SIZEOF_LONG == 8
   static const ulong states[]= { 1, 4, 0, 63, 64, 255, 256, 65535, 0x12345678UL, 0xFFFFFFFFUL,
                                  (ulong) 0x7FFFFFFFFFFFFFFFULL, (ulong) ~0UL, 1234567890123UL };
   size_t si, sj; unsigned hi, lo, i;
@@ -131,7 +135,7 @@ static void test_hash_macro(void)
   }
   ok(chains == 0, "2000 random chains of up to 600 bytes: identical at every step (diverged: %lu)", chains);
 #else
-  skip(3, "MY_HASH_ADD_MARIADB_2BYTES is not defined in this tree (unmodified hash step)");
+  skip(3, "MY_HASH_ADD_MARIADB_2BYTES not in this tree (unmodified hash step)");
 #endif
 }
 
@@ -198,15 +202,19 @@ static size_t equal_variant(CHARSET_INFO *cs, const uchar *s, size_t len, uchar 
 static void test_properties(const char *name)
 {
   CHARSET_INFO *cs= get_charset_by_name(name, MYF(0));
-  uchar s[256], t[256], u[256], ks[2048], kt[2048];
+  static uchar s[256], t[256], u[256], ks[8192], kt[8192];   /* static: keeps the frame small */
   size_t slen, tlen, ulen, klen;
   unsigned trial, nkeys;
   ulong refl= 0, prefix_bad= 0, antisym= 0, hash_eq_bad= 0, equal_pairs= 0, pad_bad= 0, order_bad= 0, compared= 0;
   my_bool pad;
   if (!cs) { skip(7, "collation %s not available", name); return; }
   pad= (cs->state & MY_CS_NOPAD) ? FALSE : TRUE;
-  klen= cs->coll->strnxfrmlen(cs, 256);
-  if (klen > sizeof(ks)) klen= sizeof(ks);
+  klen= cs->coll->strnxfrmlen(cs, sizeof(s));
+  if (klen > sizeof(ks))
+  {
+    diag("%s: sort-key length %u exceeds the test buffer; the sort-key order check is skipped", name, (uint) klen);
+    klen= 0;
+  }
   nkeys= (unsigned) klen;
   rng_state= 0x9E3779B97F4A7C15ULL;
   for (trial= 0; trial < 6000; trial++)
@@ -251,7 +259,8 @@ static void test_properties(const char *name)
       else
       { if (my_ci_strnncollsp(cs, s, slen, u, ulen) == 0) pad_bad++; }
     }
-    /* order by comparison == order by sort key */
+    /* order by comparison == order by sort key (full-length, space-padded keys, as filesort builds them) */
+    if (klen)
     {
       my_strnxfrm_ret_t r1= cs->coll->strnxfrm(cs, ks, klen, nkeys, s, slen, MY_STRXFRM_PAD_WITH_SPACE | MY_STRXFRM_PAD_TO_MAXLEN);
       my_strnxfrm_ret_t r2= cs->coll->strnxfrm(cs, kt, klen, nkeys, t, tlen, MY_STRXFRM_PAD_WITH_SPACE | MY_STRXFRM_PAD_TO_MAXLEN);
@@ -267,7 +276,8 @@ static void test_properties(const char *name)
   ok(antisym == 0, "%s: comparison is antisymmetric on 6000 pairs (failures: %lu)", name, antisym);
   ok(hash_eq_bad == 0, "%s: strings that compare equal hash equal, %lu equal pairs (failures: %lu)", name, equal_pairs, hash_eq_bad);
   ok(pad_bad == 0, "%s: trailing spaces %s (failures: %lu)", name, pad ? "ignored by compare and hash (PAD)" : "significant (NOPAD)", pad_bad);
-  ok(order_bad == 0, "%s: order by comparison agrees with order by sort key on %lu pairs (failures: %lu)", name, compared, order_bad);
+  if (klen) ok(order_bad == 0, "%s: order by comparison agrees with order by sort key on %lu pairs (failures: %lu)", name, compared, order_bad);
+  else skip(1, "%s: sort-key order check skipped (buffer)", name);
   ok(equal_pairs > 50, "%s: the corpus produced enough equal pairs to be meaningful (%lu)", name, equal_pairs);
 }
 
