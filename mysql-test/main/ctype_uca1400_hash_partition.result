@@ -1,0 +1,544 @@
+#
+# Regression test for the UCA collation hot-path optimisation (hash, compare, sort key).
+# The expected results were recorded on the UNMODIFIED collation code. Partition placement
+# under PARTITION BY KEY depends on the collation hash, so any change in hash output moves
+# rows between partitions and fails this test; DISTINCT, GROUP BY, equality joins and the
+# MEMORY hash index exercise the compare and hash paths together.
+#
+SET NAMES utf8mb4;
+# A multilingual corpus: ASCII, 2-byte Latin and Cyrillic, 3-byte CJK and symbols, 4-byte emoji,
+# expansions (ß, ligatures), canonically equivalent sequences, ignorables, trailing spaces.
+CREATE TABLE corpus (id INT PRIMARY KEY, s VARCHAR(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin);
+INSERT INTO corpus VALUES
+(1,''),(2,' '),(3,'a'),(4,'A'),(5,'a '),(6,'a  '),(7,' a'),(8,'ab'),(9,'ba'),(10,'abc'),
+(11,'Hello'),(12,'HELLO'),(13,'hello world'),(14,'hello  world'),
+(15,'café'),(16,'CAFE'),(17,'cafe'),(18,CONCAT('cafe',_utf8mb4 0xCC81)),(19,'Straße'),(20,'Strasse'),(21,'STRASSE'),
+(22,'ﬁ'),(23,'fi'),(24,'æble'),(25,'aeble'),(26,'Ångström'),(27,'angstrom'),
+(28,'Жж'),(29,'жЖ'),(30,'αβγ'),(31,'ΑΒΓ'),(32,'Ελλάδα'),
+(33,'中文'),(34,'日本語テキスト'),(35,'한국어'),(36,'€100'),(37,'100€'),
+(38,'😀'),(39,'😀😀'),(40,'a😀b'),(41,'𝔘𝔫𝔦𝔠𝔬𝔡𝔢'),
+(42,CONCAT('a',_utf8mb4 0xE2808B,'b')),(43,CONCAT('a',_utf8mb4 0xC2AD,'b')),(44,'ab'),
+(45,'L·L'),(46,'ll'),(47,'ch'),(48,'Ch'),
+(49,REPEAT('x',63)),(50,REPEAT('x',62)),(51,CONCAT(REPEAT('x',62),' ')),(52,REPEAT('é',32)),(53,REPEAT('中',21)),
+(54,'The quick brown fox'),(55,'the QUICK brown FOX'),(56,'The quick brown fox '),
+(57,'naïve'),(58,'naive'),(59,'NAÏVE'),(60,'résumé'),(61,'resume'),(62,'Résumé ');
+# 1. Partition placement by the collation hash: three collations, eight partitions each.
+CREATE TABLE p_ai (s VARCHAR(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_uca1400_ai_ci) PARTITION BY KEY(s) PARTITIONS 8;
+CREATE TABLE p_as (s VARCHAR(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_uca1400_as_cs) PARTITION BY KEY(s) PARTITIONS 8;
+CREATE TABLE p_np (s VARCHAR(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_uca1400_nopad_ai_ci) PARTITION BY KEY(s) PARTITIONS 8;
+INSERT INTO p_ai SELECT s FROM corpus;
+INSERT INTO p_as SELECT s FROM corpus;
+INSERT INTO p_np SELECT s FROM corpus;
+# partition p0
+SELECT 'ai_ci' AS coll, HEX(s) AS hex_s, s FROM p_ai PARTITION (p0) ORDER BY HEX(s);
+coll	hex_s	s
+ai_ci	F09F9880	😀
+SELECT 'as_cs' AS coll, HEX(s) AS hex_s, s FROM p_as PARTITION (p0) ORDER BY HEX(s);
+coll	hex_s	s
+as_cs	F09F9880	😀
+SELECT 'nopad' AS coll, HEX(s) AS hex_s, s FROM p_np PARTITION (p0) ORDER BY HEX(s);
+coll	hex_s	s
+nopad	F09F9880	😀
+# partition p1
+SELECT 'ai_ci' AS coll, HEX(s) AS hex_s, s FROM p_ai PARTITION (p1) ORDER BY HEX(s);
+coll	hex_s	s
+ai_ci		
+ai_ci	20	 
+ai_ci	41	A
+ai_ci	4E41C38F5645	NAÏVE
+ai_ci	53545241535345	STRASSE
+ai_ci	53747261737365	Strasse
+ai_ci	53747261C39F65	Straße
+ai_ci	61	a
+ai_ci	6120	a 
+ai_ci	612020	a  
+ai_ci	6165626C65	aeble
+ai_ci	61F09F988062	a😀b
+ai_ci	68656C6C6F20776F726C64	hello world
+ai_ci	6E61697665	naive
+ai_ci	6E61C3AF7665	naïve
+ai_ci	7878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878	xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+ai_ci	787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787820	xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx 
+ai_ci	C3A6626C65	æble
+ai_ci	E4B8ADE4B8ADE4B8ADE4B8ADE4B8ADE4B8ADE4B8ADE4B8ADE4B8ADE4B8ADE4B8ADE4B8ADE4B8ADE4B8ADE4B8ADE4B8ADE4B8ADE4B8ADE4B8ADE4B8ADE4B8AD	中中中中中中中中中中中中中中中中中中中中中
+ai_ci	F09D9498F09D94ABF09D94A6F09D94A0F09D94ACF09D94A1F09D94A2	𝔘𝔫𝔦𝔠𝔬𝔡𝔢
+SELECT 'as_cs' AS coll, HEX(s) AS hex_s, s FROM p_as PARTITION (p1) ORDER BY HEX(s);
+coll	hex_s	s
+as_cs		
+as_cs	20	 
+as_cs	41	A
+as_cs	4E41C38F5645	NAÏVE
+as_cs	53545241535345	STRASSE
+as_cs	53747261737365	Strasse
+as_cs	53747261C39F65	Straße
+as_cs	61	a
+as_cs	6120	a 
+as_cs	612020	a  
+as_cs	6165626C65	aeble
+as_cs	61F09F988062	a😀b
+as_cs	68656C6C6F20776F726C64	hello world
+as_cs	6E61697665	naive
+as_cs	6E61C3AF7665	naïve
+as_cs	7878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878	xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+as_cs	787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787820	xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx 
+as_cs	C3A6626C65	æble
+as_cs	E4B8ADE4B8ADE4B8ADE4B8ADE4B8ADE4B8ADE4B8ADE4B8ADE4B8ADE4B8ADE4B8ADE4B8ADE4B8ADE4B8ADE4B8ADE4B8ADE4B8ADE4B8ADE4B8ADE4B8ADE4B8AD	中中中中中中中中中中中中中中中中中中中中中
+as_cs	F09D9498F09D94ABF09D94A6F09D94A0F09D94ACF09D94A1F09D94A2	𝔘𝔫𝔦𝔠𝔬𝔡𝔢
+SELECT 'nopad' AS coll, HEX(s) AS hex_s, s FROM p_np PARTITION (p1) ORDER BY HEX(s);
+coll	hex_s	s
+nopad		
+nopad	20	 
+nopad	41	A
+nopad	4E41C38F5645	NAÏVE
+nopad	53545241535345	STRASSE
+nopad	53747261737365	Strasse
+nopad	53747261C39F65	Straße
+nopad	61	a
+nopad	6165626C65	aeble
+nopad	61F09F988062	a😀b
+nopad	68656C6C6F20776F726C64	hello world
+nopad	6E61697665	naive
+nopad	6E61C3AF7665	naïve
+nopad	7878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878	xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+nopad	C3A6626C65	æble
+nopad	E4B8ADE4B8ADE4B8ADE4B8ADE4B8ADE4B8ADE4B8ADE4B8ADE4B8ADE4B8ADE4B8ADE4B8ADE4B8ADE4B8ADE4B8ADE4B8ADE4B8ADE4B8ADE4B8ADE4B8ADE4B8AD	中中中中中中中中中中中中中中中中中中中中中
+nopad	F09D9498F09D94ABF09D94A6F09D94A0F09D94ACF09D94A1F09D94A2	𝔘𝔫𝔦𝔠𝔬𝔡𝔢
+# partition p2
+SELECT 'ai_ci' AS coll, HEX(s) AS hex_s, s FROM p_ai PARTITION (p2) ORDER BY HEX(s);
+coll	hex_s	s
+ai_ci	4CC2B74C	L·L
+ai_ci	6C6C	ll
+SELECT 'as_cs' AS coll, HEX(s) AS hex_s, s FROM p_as PARTITION (p2) ORDER BY HEX(s);
+coll	hex_s	s
+as_cs	4CC2B74C	L·L
+as_cs	6C6C	ll
+SELECT 'nopad' AS coll, HEX(s) AS hex_s, s FROM p_np PARTITION (p2) ORDER BY HEX(s);
+coll	hex_s	s
+nopad	4CC2B74C	L·L
+nopad	6C6C	ll
+# partition p3
+SELECT 'ai_ci' AS coll, HEX(s) AS hex_s, s FROM p_ai PARTITION (p3) ORDER BY HEX(s);
+coll	hex_s	s
+ai_ci	313030E282AC	100€
+ai_ci	43414645	CAFE
+ai_ci	54686520717569636B2062726F776E20666F78	The quick brown fox
+ai_ci	54686520717569636B2062726F776E20666F7820	The quick brown fox 
+ai_ci	6162	ab
+ai_ci	6162	ab
+ai_ci	61C2AD62	a­b
+ai_ci	61E2808B62	a​b
+ai_ci	63616665	cafe
+ai_ci	63616665CC81	café
+ai_ci	636166C3A9	café
+ai_ci	6669	fi
+ai_ci	74686520515549434B2062726F776E20464F58	the QUICK brown FOX
+ai_ci	787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878	xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+ai_ci	E697A5E69CACE8AA9EE38386E382ADE382B9E38388	日本語テキスト
+ai_ci	EFAC81	ﬁ
+SELECT 'as_cs' AS coll, HEX(s) AS hex_s, s FROM p_as PARTITION (p3) ORDER BY HEX(s);
+coll	hex_s	s
+as_cs	313030E282AC	100€
+as_cs	43414645	CAFE
+as_cs	54686520717569636B2062726F776E20666F78	The quick brown fox
+as_cs	54686520717569636B2062726F776E20666F7820	The quick brown fox 
+as_cs	6162	ab
+as_cs	6162	ab
+as_cs	61C2AD62	a­b
+as_cs	61E2808B62	a​b
+as_cs	63616665	cafe
+as_cs	63616665CC81	café
+as_cs	636166C3A9	café
+as_cs	6669	fi
+as_cs	74686520515549434B2062726F776E20464F58	the QUICK brown FOX
+as_cs	787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878	xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+as_cs	E697A5E69CACE8AA9EE38386E382ADE382B9E38388	日本語テキスト
+as_cs	EFAC81	ﬁ
+SELECT 'nopad' AS coll, HEX(s) AS hex_s, s FROM p_np PARTITION (p3) ORDER BY HEX(s);
+coll	hex_s	s
+nopad	313030E282AC	100€
+nopad	43414645	CAFE
+nopad	54686520717569636B2062726F776E20666F78	The quick brown fox
+nopad	54686520717569636B2062726F776E20666F7820	The quick brown fox 
+nopad	6120	a 
+nopad	6162	ab
+nopad	6162	ab
+nopad	61C2AD62	a­b
+nopad	61E2808B62	a​b
+nopad	63616665	cafe
+nopad	63616665CC81	café
+nopad	636166C3A9	café
+nopad	6669	fi
+nopad	74686520515549434B2062726F776E20464F58	the QUICK brown FOX
+nopad	787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878	xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+nopad	E697A5E69CACE8AA9EE38386E382ADE382B9E38388	日本語テキスト
+nopad	EFAC81	ﬁ
+# partition p4
+SELECT 'ai_ci' AS coll, HEX(s) AS hex_s, s FROM p_ai PARTITION (p4) ORDER BY HEX(s);
+coll	hex_s	s
+SELECT 'as_cs' AS coll, HEX(s) AS hex_s, s FROM p_as PARTITION (p4) ORDER BY HEX(s);
+coll	hex_s	s
+SELECT 'nopad' AS coll, HEX(s) AS hex_s, s FROM p_np PARTITION (p4) ORDER BY HEX(s);
+coll	hex_s	s
+# partition p5
+SELECT 'ai_ci' AS coll, HEX(s) AS hex_s, s FROM p_ai PARTITION (p5) ORDER BY HEX(s);
+coll	hex_s	s
+ai_ci	616263	abc
+ai_ci	CE91CE92CE93	ΑΒΓ
+ai_ci	CEB1CEB2CEB3	αβγ
+ai_ci	D096D0B6	Жж
+ai_ci	D0B6D096	жЖ
+SELECT 'as_cs' AS coll, HEX(s) AS hex_s, s FROM p_as PARTITION (p5) ORDER BY HEX(s);
+coll	hex_s	s
+as_cs	616263	abc
+as_cs	CE91CE92CE93	ΑΒΓ
+as_cs	CEB1CEB2CEB3	αβγ
+as_cs	D096D0B6	Жж
+as_cs	D0B6D096	жЖ
+SELECT 'nopad' AS coll, HEX(s) AS hex_s, s FROM p_np PARTITION (p5) ORDER BY HEX(s);
+coll	hex_s	s
+nopad	52C3A973756DC3A920	Résumé 
+nopad	612020	a  
+nopad	616263	abc
+nopad	787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787878787820	xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx 
+nopad	CE91CE92CE93	ΑΒΓ
+nopad	CEB1CEB2CEB3	αβγ
+nopad	D096D0B6	Жж
+nopad	D0B6D096	жЖ
+# partition p6
+SELECT 'ai_ci' AS coll, HEX(s) AS hex_s, s FROM p_ai PARTITION (p6) ORDER BY HEX(s);
+coll	hex_s	s
+ai_ci	4368	Ch
+ai_ci	616E677374726F6D	angstrom
+ai_ci	6368	ch
+ai_ci	C3856E67737472C3B66D	Ångström
+ai_ci	ED959CEAB5ADEC96B4	한국어
+ai_ci	F09F9880F09F9880	😀😀
+SELECT 'as_cs' AS coll, HEX(s) AS hex_s, s FROM p_as PARTITION (p6) ORDER BY HEX(s);
+coll	hex_s	s
+as_cs	4368	Ch
+as_cs	616E677374726F6D	angstrom
+as_cs	6368	ch
+as_cs	C3856E67737472C3B66D	Ångström
+as_cs	ED959CEAB5ADEC96B4	한국어
+as_cs	F09F9880F09F9880	😀😀
+SELECT 'nopad' AS coll, HEX(s) AS hex_s, s FROM p_np PARTITION (p6) ORDER BY HEX(s);
+coll	hex_s	s
+nopad	4368	Ch
+nopad	616E677374726F6D	angstrom
+nopad	6368	ch
+nopad	C3856E67737472C3B66D	Ångström
+nopad	ED959CEAB5ADEC96B4	한국어
+nopad	F09F9880F09F9880	😀😀
+# partition p7
+SELECT 'ai_ci' AS coll, HEX(s) AS hex_s, s FROM p_ai PARTITION (p7) ORDER BY HEX(s);
+coll	hex_s	s
+ai_ci	2061	 a
+ai_ci	48454C4C4F	HELLO
+ai_ci	48656C6C6F	Hello
+ai_ci	52C3A973756DC3A920	Résumé 
+ai_ci	6261	ba
+ai_ci	68656C6C6F2020776F726C64	hello  world
+ai_ci	726573756D65	resume
+ai_ci	72C3A973756DC3A9	résumé
+ai_ci	C3A9C3A9C3A9C3A9C3A9C3A9C3A9C3A9C3A9C3A9C3A9C3A9C3A9C3A9C3A9C3A9C3A9C3A9C3A9C3A9C3A9C3A9C3A9C3A9C3A9C3A9C3A9C3A9C3A9C3A9C3A9C3A9	éééééééééééééééééééééééééééééééé
+ai_ci	CE95CEBBCEBBCEACCEB4CEB1	Ελλάδα
+ai_ci	E282AC313030	€100
+ai_ci	E4B8ADE69687	中文
+SELECT 'as_cs' AS coll, HEX(s) AS hex_s, s FROM p_as PARTITION (p7) ORDER BY HEX(s);
+coll	hex_s	s
+as_cs	2061	 a
+as_cs	48454C4C4F	HELLO
+as_cs	48656C6C6F	Hello
+as_cs	52C3A973756DC3A920	Résumé 
+as_cs	6261	ba
+as_cs	68656C6C6F2020776F726C64	hello  world
+as_cs	726573756D65	resume
+as_cs	72C3A973756DC3A9	résumé
+as_cs	C3A9C3A9C3A9C3A9C3A9C3A9C3A9C3A9C3A9C3A9C3A9C3A9C3A9C3A9C3A9C3A9C3A9C3A9C3A9C3A9C3A9C3A9C3A9C3A9C3A9C3A9C3A9C3A9C3A9C3A9C3A9C3A9	éééééééééééééééééééééééééééééééé
+as_cs	CE95CEBBCEBBCEACCEB4CEB1	Ελλάδα
+as_cs	E282AC313030	€100
+as_cs	E4B8ADE69687	中文
+SELECT 'nopad' AS coll, HEX(s) AS hex_s, s FROM p_np PARTITION (p7) ORDER BY HEX(s);
+coll	hex_s	s
+nopad	2061	 a
+nopad	48454C4C4F	HELLO
+nopad	48656C6C6F	Hello
+nopad	6261	ba
+nopad	68656C6C6F2020776F726C64	hello  world
+nopad	726573756D65	resume
+nopad	72C3A973756DC3A9	résumé
+nopad	C3A9C3A9C3A9C3A9C3A9C3A9C3A9C3A9C3A9C3A9C3A9C3A9C3A9C3A9C3A9C3A9C3A9C3A9C3A9C3A9C3A9C3A9C3A9C3A9C3A9C3A9C3A9C3A9C3A9C3A9C3A9C3A9	éééééééééééééééééééééééééééééééé
+nopad	CE95CEBBCEBBCEACCEB4CEB1	Ελλάδα
+nopad	E282AC313030	€100
+nopad	E4B8ADE69687	中文
+# 2. Equality classes under each collation: DISTINCT and GROUP BY counts, and the members of every class.
+SELECT COUNT(DISTINCT s COLLATE utf8mb4_uca1400_ai_ci) AS distinct_ai,
+COUNT(DISTINCT s COLLATE utf8mb4_uca1400_as_cs) AS distinct_as,
+COUNT(DISTINCT s COLLATE utf8mb4_uca1400_nopad_ai_ci) AS distinct_np FROM corpus;
+distinct_ai	distinct_as	distinct_np
+35	53	41
+SELECT MIN(id) AS class_rep, COUNT(*) AS n, GROUP_CONCAT(id ORDER BY id) AS members
+FROM corpus GROUP BY s COLLATE utf8mb4_uca1400_ai_ci HAVING n > 1 ORDER BY class_rep;
+class_rep	n	members
+1	2	1,2
+3	4	3,4,5,6
+8	4	8,42,43,44
+11	2	11,12
+15	4	15,16,17,18
+19	3	19,20,21
+22	2	22,23
+24	2	24,25
+26	2	26,27
+28	2	28,29
+30	2	30,31
+45	2	45,46
+47	2	47,48
+50	2	50,51
+54	3	54,55,56
+57	3	57,58,59
+60	3	60,61,62
+SELECT MIN(id) AS class_rep, COUNT(*) AS n, GROUP_CONCAT(id ORDER BY id) AS members
+FROM corpus GROUP BY s COLLATE utf8mb4_uca1400_as_cs HAVING n > 1 ORDER BY class_rep;
+class_rep	n	members
+1	2	1,2
+3	3	3,5,6
+8	4	8,42,43,44
+15	2	15,18
+50	2	50,51
+54	2	54,56
+SELECT MIN(id) AS class_rep, COUNT(*) AS n, GROUP_CONCAT(id ORDER BY id) AS members
+FROM corpus GROUP BY s COLLATE utf8mb4_uca1400_nopad_ai_ci HAVING n > 1 ORDER BY class_rep;
+class_rep	n	members
+3	2	3,4
+8	4	8,42,43,44
+11	2	11,12
+15	4	15,16,17,18
+19	3	19,20,21
+22	2	22,23
+24	2	24,25
+26	2	26,27
+28	2	28,29
+30	2	30,31
+45	2	45,46
+47	2	47,48
+54	2	54,55
+57	3	57,58,59
+60	2	60,61
+# 3. Equality self-join: every pair equal under the collation, in both directions (compare path, both operand orders).
+SELECT COUNT(*) AS equal_pairs_ai FROM corpus a JOIN corpus b
+ON a.s COLLATE utf8mb4_uca1400_ai_ci = b.s COLLATE utf8mb4_uca1400_ai_ci AND a.id < b.id;
+equal_pairs_ai
+40
+SELECT a.id, b.id FROM corpus a JOIN corpus b
+ON a.s COLLATE utf8mb4_uca1400_ai_ci = b.s COLLATE utf8mb4_uca1400_ai_ci AND a.id < b.id ORDER BY a.id, b.id;
+id	id
+1	2
+3	4
+3	5
+3	6
+4	5
+4	6
+5	6
+8	42
+8	43
+8	44
+11	12
+15	16
+15	17
+15	18
+16	17
+16	18
+17	18
+19	20
+19	21
+20	21
+22	23
+24	25
+26	27
+28	29
+30	31
+42	43
+42	44
+43	44
+45	46
+47	48
+50	51
+54	55
+54	56
+55	56
+57	58
+57	59
+58	59
+60	61
+60	62
+61	62
+SELECT COUNT(*) AS equal_pairs_np FROM corpus a JOIN corpus b
+ON a.s COLLATE utf8mb4_uca1400_nopad_ai_ci = b.s COLLATE utf8mb4_uca1400_nopad_ai_ci AND a.id < b.id;
+equal_pairs_np
+29
+# 4. Ordering by sort key (ORDER BY uses strnxfrm) must agree with the comparison function.
+SELECT id, s FROM corpus ORDER BY s COLLATE utf8mb4_uca1400_ai_ci, id;
+id	s
+1	
+2	 
+7	 a
+38	😀
+39	😀😀
+36	€100
+37	100€
+3	a
+4	A
+5	a 
+6	a  
+40	a😀b
+8	ab
+42	a​b
+43	a­b
+44	ab
+10	abc
+24	æble
+25	aeble
+26	Ångström
+27	angstrom
+9	ba
+15	café
+16	CAFE
+17	cafe
+18	café
+47	ch
+48	Ch
+52	éééééééééééééééééééééééééééééééé
+22	ﬁ
+23	fi
+11	Hello
+12	HELLO
+14	hello  world
+13	hello world
+45	L·L
+46	ll
+57	naïve
+58	naive
+59	NAÏVE
+60	résumé
+61	resume
+62	Résumé 
+19	Straße
+20	Strasse
+21	STRASSE
+54	The quick brown fox
+55	the QUICK brown FOX
+56	The quick brown fox 
+41	𝔘𝔫𝔦𝔠𝔬𝔡𝔢
+50	xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+51	xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx 
+49	xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+30	αβγ
+31	ΑΒΓ
+32	Ελλάδα
+28	Жж
+29	жЖ
+53	中中中中中中中中中中中中中中中中中中中中中
+33	中文
+34	日本語テキスト
+35	한국어
+SELECT id, s FROM corpus ORDER BY s COLLATE utf8mb4_uca1400_as_cs, id;
+id	s
+1	
+2	 
+7	 a
+38	😀
+39	😀😀
+36	€100
+37	100€
+3	a
+5	a 
+6	a  
+4	A
+40	a😀b
+8	ab
+42	a​b
+43	a­b
+44	ab
+10	abc
+25	aeble
+24	æble
+27	angstrom
+26	Ångström
+9	ba
+17	cafe
+16	CAFE
+15	café
+18	café
+47	ch
+48	Ch
+52	éééééééééééééééééééééééééééééééé
+23	fi
+22	ﬁ
+11	Hello
+12	HELLO
+14	hello  world
+13	hello world
+46	ll
+45	L·L
+58	naive
+57	naïve
+59	NAÏVE
+61	resume
+60	résumé
+62	Résumé 
+20	Strasse
+21	STRASSE
+19	Straße
+55	the QUICK brown FOX
+54	The quick brown fox
+56	The quick brown fox 
+41	𝔘𝔫𝔦𝔠𝔬𝔡𝔢
+50	xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+51	xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx 
+49	xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+30	αβγ
+31	ΑΒΓ
+32	Ελλάδα
+29	жЖ
+28	Жж
+53	中中中中中中中中中中中中中中中中中中中中中
+33	中文
+34	日本語テキスト
+35	한국어
+# 5. MEMORY engine hash index on a uca1400 column: lookups by hash, then by value.
+CREATE TABLE m (s VARCHAR(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_uca1400_ai_ci, id INT, INDEX (s) USING HASH) ENGINE=MEMORY;
+INSERT INTO m SELECT s, id FROM corpus;
+SELECT GROUP_CONCAT(id ORDER BY id) AS ids FROM m WHERE s = 'cafe';
+ids
+15,16,17,18
+SELECT GROUP_CONCAT(id ORDER BY id) AS ids FROM m WHERE s = 'strasse';
+ids
+19,20,21
+SELECT GROUP_CONCAT(id ORDER BY id) AS ids FROM m WHERE s = 'a';
+ids
+3,4,5,6
+SELECT GROUP_CONCAT(id ORDER BY id) AS ids FROM m WHERE s = 'the quick brown fox';
+ids
+54,55,56
+SELECT GROUP_CONCAT(id ORDER BY id) AS ids FROM m WHERE s = '😀';
+ids
+38
+SELECT GROUP_CONCAT(id ORDER BY id) AS ids FROM m WHERE s = CONCAT('a',_utf8mb4 0xC2AD,'b');
+ids
+8,42,43,44
+SELECT COUNT(*) AS n FROM m WHERE s = REPEAT('x',62);
+n
+2
+# 6. Prefix comparison and LIKE on the same data (strnncoll with the prefix flag).
+SELECT id, s FROM corpus WHERE s COLLATE utf8mb4_uca1400_ai_ci LIKE 'caf%' ORDER BY id;
+id	s
+15	café
+16	CAFE
+17	cafe
+18	café
+SELECT id, s FROM corpus WHERE s COLLATE utf8mb4_uca1400_ai_ci LIKE 'the quick%' ORDER BY id;
+id	s
+54	The quick brown fox
+55	the QUICK brown FOX
+56	The quick brown fox 
+DROP TABLE m, p_ai, p_as, p_np, corpus;

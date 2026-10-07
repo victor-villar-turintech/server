@@ -1,2 +1,3 @@
 
-MY_ADD_TESTS(strings json LINK_LIBRARIES strings mysys)
+INCLUDE_DIRECTORIES(${CMAKE_SOURCE_DIR}/strings)
+MY_ADD_TESTS(strings json uca_v9 LINK_LIBRARIES strings mysys)

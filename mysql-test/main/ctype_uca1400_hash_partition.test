@@ -1,0 +1,85 @@
+--source include/have_partition.inc
+
+--echo #
+--echo # Regression test for the UCA collation hot-path optimisation (hash, compare, sort key).
+--echo # The expected results were recorded on the UNMODIFIED collation code. Partition placement
+--echo # under PARTITION BY KEY depends on the collation hash, so any change in hash output moves
+--echo # rows between partitions and fails this test; DISTINCT, GROUP BY, equality joins and the
+--echo # MEMORY hash index exercise the compare and hash paths together.
+--echo #
+
+SET NAMES utf8mb4;
+
+--echo # A multilingual corpus: ASCII, 2-byte Latin and Cyrillic, 3-byte CJK and symbols, 4-byte emoji,
+--echo # expansions (ß, ligatures), canonically equivalent sequences, ignorables, trailing spaces.
+CREATE TABLE corpus (id INT PRIMARY KEY, s VARCHAR(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin);
+INSERT INTO corpus VALUES
+ (1,''),(2,' '),(3,'a'),(4,'A'),(5,'a '),(6,'a  '),(7,' a'),(8,'ab'),(9,'ba'),(10,'abc'),
+ (11,'Hello'),(12,'HELLO'),(13,'hello world'),(14,'hello  world'),
+ (15,'café'),(16,'CAFE'),(17,'cafe'),(18,CONCAT('cafe',_utf8mb4 0xCC81)),(19,'Straße'),(20,'Strasse'),(21,'STRASSE'),
+ (22,'ﬁ'),(23,'fi'),(24,'æble'),(25,'aeble'),(26,'Ångström'),(27,'angstrom'),
+ (28,'Жж'),(29,'жЖ'),(30,'αβγ'),(31,'ΑΒΓ'),(32,'Ελλάδα'),
+ (33,'中文'),(34,'日本語テキスト'),(35,'한국어'),(36,'€100'),(37,'100€'),
+ (38,'😀'),(39,'😀😀'),(40,'a😀b'),(41,'𝔘𝔫𝔦𝔠𝔬𝔡𝔢'),
+ (42,CONCAT('a',_utf8mb4 0xE2808B,'b')),(43,CONCAT('a',_utf8mb4 0xC2AD,'b')),(44,'ab'),
+ (45,'L·L'),(46,'ll'),(47,'ch'),(48,'Ch'),
+ (49,REPEAT('x',63)),(50,REPEAT('x',62)),(51,CONCAT(REPEAT('x',62),' ')),(52,REPEAT('é',32)),(53,REPEAT('中',21)),
+ (54,'The quick brown fox'),(55,'the QUICK brown FOX'),(56,'The quick brown fox '),
+ (57,'naïve'),(58,'naive'),(59,'NAÏVE'),(60,'résumé'),(61,'resume'),(62,'Résumé ');
+
+--echo # 1. Partition placement by the collation hash: three collations, eight partitions each.
+CREATE TABLE p_ai (s VARCHAR(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_uca1400_ai_ci) PARTITION BY KEY(s) PARTITIONS 8;
+CREATE TABLE p_as (s VARCHAR(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_uca1400_as_cs) PARTITION BY KEY(s) PARTITIONS 8;
+CREATE TABLE p_np (s VARCHAR(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_uca1400_nopad_ai_ci) PARTITION BY KEY(s) PARTITIONS 8;
+INSERT INTO p_ai SELECT s FROM corpus;
+INSERT INTO p_as SELECT s FROM corpus;
+INSERT INTO p_np SELECT s FROM corpus;
+let $i= 0;
+while ($i < 8)
+{
+  --echo # partition p$i
+  eval SELECT 'ai_ci' AS coll, HEX(s) AS hex_s, s FROM p_ai PARTITION (p$i) ORDER BY HEX(s);
+  eval SELECT 'as_cs' AS coll, HEX(s) AS hex_s, s FROM p_as PARTITION (p$i) ORDER BY HEX(s);
+  eval SELECT 'nopad' AS coll, HEX(s) AS hex_s, s FROM p_np PARTITION (p$i) ORDER BY HEX(s);
+  inc $i;
+}
+
+--echo # 2. Equality classes under each collation: DISTINCT and GROUP BY counts, and the members of every class.
+SELECT COUNT(DISTINCT s COLLATE utf8mb4_uca1400_ai_ci) AS distinct_ai,
+       COUNT(DISTINCT s COLLATE utf8mb4_uca1400_as_cs) AS distinct_as,
+       COUNT(DISTINCT s COLLATE utf8mb4_uca1400_nopad_ai_ci) AS distinct_np FROM corpus;
+SELECT MIN(id) AS class_rep, COUNT(*) AS n, GROUP_CONCAT(id ORDER BY id) AS members
+  FROM corpus GROUP BY s COLLATE utf8mb4_uca1400_ai_ci HAVING n > 1 ORDER BY class_rep;
+SELECT MIN(id) AS class_rep, COUNT(*) AS n, GROUP_CONCAT(id ORDER BY id) AS members
+  FROM corpus GROUP BY s COLLATE utf8mb4_uca1400_as_cs HAVING n > 1 ORDER BY class_rep;
+SELECT MIN(id) AS class_rep, COUNT(*) AS n, GROUP_CONCAT(id ORDER BY id) AS members
+  FROM corpus GROUP BY s COLLATE utf8mb4_uca1400_nopad_ai_ci HAVING n > 1 ORDER BY class_rep;
+
+--echo # 3. Equality self-join: every pair equal under the collation, in both directions (compare path, both operand orders).
+SELECT COUNT(*) AS equal_pairs_ai FROM corpus a JOIN corpus b
+  ON a.s COLLATE utf8mb4_uca1400_ai_ci = b.s COLLATE utf8mb4_uca1400_ai_ci AND a.id < b.id;
+SELECT a.id, b.id FROM corpus a JOIN corpus b
+  ON a.s COLLATE utf8mb4_uca1400_ai_ci = b.s COLLATE utf8mb4_uca1400_ai_ci AND a.id < b.id ORDER BY a.id, b.id;
+SELECT COUNT(*) AS equal_pairs_np FROM corpus a JOIN corpus b
+  ON a.s COLLATE utf8mb4_uca1400_nopad_ai_ci = b.s COLLATE utf8mb4_uca1400_nopad_ai_ci AND a.id < b.id;
+
+--echo # 4. Ordering by sort key (ORDER BY uses strnxfrm) must agree with the comparison function.
+SELECT id, s FROM corpus ORDER BY s COLLATE utf8mb4_uca1400_ai_ci, id;
+SELECT id, s FROM corpus ORDER BY s COLLATE utf8mb4_uca1400_as_cs, id;
+
+--echo # 5. MEMORY engine hash index on a uca1400 column: lookups by hash, then by value.
+CREATE TABLE m (s VARCHAR(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_uca1400_ai_ci, id INT, INDEX (s) USING HASH) ENGINE=MEMORY;
+INSERT INTO m SELECT s, id FROM corpus;
+SELECT GROUP_CONCAT(id ORDER BY id) AS ids FROM m WHERE s = 'cafe';
+SELECT GROUP_CONCAT(id ORDER BY id) AS ids FROM m WHERE s = 'strasse';
+SELECT GROUP_CONCAT(id ORDER BY id) AS ids FROM m WHERE s = 'a';
+SELECT GROUP_CONCAT(id ORDER BY id) AS ids FROM m WHERE s = 'the quick brown fox';
+SELECT GROUP_CONCAT(id ORDER BY id) AS ids FROM m WHERE s = '😀';
+SELECT GROUP_CONCAT(id ORDER BY id) AS ids FROM m WHERE s = CONCAT('a',_utf8mb4 0xC2AD,'b');
+SELECT COUNT(*) AS n FROM m WHERE s = REPEAT('x',62);
+
+--echo # 6. Prefix comparison and LIKE on the same data (strnncoll with the prefix flag).
+SELECT id, s FROM corpus WHERE s COLLATE utf8mb4_uca1400_ai_ci LIKE 'caf%' ORDER BY id;
+SELECT id, s FROM corpus WHERE s COLLATE utf8mb4_uca1400_ai_ci LIKE 'the quick%' ORDER BY id;
+
+DROP TABLE m, p_ai, p_as, p_np, corpus;
